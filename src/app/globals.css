@@ -128,40 +128,63 @@
         @apply font-sans;
     }
 }
+
 [data-sonner-toast] {
-    border-radius: 14px;
-    border-color: var(--normal-border) !important;
-    background: var(--normal-bg) !important;
-    color: var(--normal-text) !important;
-    box-shadow: 0 8px 24px rgb(124 58 237 / 0.14);
+    border-radius: 14px !important;
+    border: 1px solid var(--toast-border) !important;
+    background: var(--toast-bg) !important;
+    color: var(--toast-text) !important;
+    box-shadow: 0 10px 30px rgb(0 0 0 / 0.08) !important;
 }
 
 [data-sonner-toast] [data-title],
 [data-sonner-toast] [data-description],
 [data-sonner-toast] [data-icon] {
-    color: var(--normal-text) !important;
+    color: var(--toast-text) !important;
 }
 
-[data-sonner-toast][data-type='info'] {
-    --normal-bg: color-mix(in oklab, #7c3aed 10%, var(--background));
-    --normal-text: #6d28d9;
-    --normal-border: #7c3aed;
+[data-sonner-toast] {
+    --toast-bg: var(--background);
+    --toast-text: var(--foreground);
+    --toast-border: var(--border);
 }
 
 [data-sonner-toast][data-type='success'] {
-    --normal-bg: color-mix(in oklab, #8b5cf6 10%, var(--background));
-    --normal-text: #7c3aed;
-    --normal-border: #8b5cf6;
-}
-
-[data-sonner-toast][data-type='warning'] {
-    --normal-bg: color-mix(in oklab, #a855f7 10%, var(--background));
-    --normal-text: #9333ea;
-    --normal-border: #a855f7;
+    --toast-bg: color-mix(in oklab, #16a34a 10%, var(--background));
+    --toast-text: #15803d;
+    --toast-border: color-mix(in oklab, #16a34a 50%, var(--border));
 }
 
 [data-sonner-toast][data-type='error'] {
-    --normal-bg: color-mix(in oklab, #dc2626 7%, var(--background));
-    --normal-text: #dc2626;
-    --normal-border: color-mix(in oklab, #dc2626 70%, #7c3aed);
+    --toast-bg: color-mix(in oklab, #dc2626 8%, var(--background));
+    --toast-text: #b91c1c;
+    --toast-border: color-mix(in oklab, #dc2626 50%, var(--border));
+}
+
+[data-sonner-toast][data-type='warning'] {
+    --toast-bg: color-mix(in oklab, #f59e0b 12%, var(--background));
+    --toast-text: #b45309;
+    --toast-border: color-mix(in oklab, #f59e0b 55%, var(--border));
+}
+
+[data-sonner-toast][data-type='info'] {
+    --toast-bg: color-mix(in oklab, #2563eb 9%, var(--background));
+    --toast-text: #1d4ed8;
+    --toast-border: color-mix(in oklab, #2563eb 45%, var(--border));
+}
+
+.dark [data-sonner-toast][data-type='success'] {
+    --toast-text: #86efac;
+}
+
+.dark [data-sonner-toast][data-type='error'] {
+    --toast-text: #fca5a5;
+}
+
+.dark [data-sonner-toast][data-type='warning'] {
+    --toast-text: #fcd34d;
+}
+
+.dark [data-sonner-toast][data-type='info'] {
+    --toast-text: #93c5fd;
 }

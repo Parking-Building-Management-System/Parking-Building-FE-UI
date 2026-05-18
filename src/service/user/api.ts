@@ -1,0 +1,64 @@
+// src/service/auth/api.ts
+
+import axios from 'axios';
+import apiClient, { ApiResponse } from '@/lib/api/axios-config';
+import { getApiUrl } from '@/lib/api/api-url';
+import { AuthenticationResponse, LoginRequest, UserProfile } from './type';
+
+const AUTH_ENDPOINT = '/auth';
+const apiUrl = getApiUrl();
+
+const getApiResult = <T>(response: ApiResponse<T>): T => {
+    if (!response.result) {
+        throw new Error(response.message || 'Empty response result');
+    }
+
+    return response.result;
+};
+
+export const loginApi = async (data: LoginRequest) => {
+    const response = await apiClient.post<
+        ApiResponse<AuthenticationResponse>,
+        ApiResponse<AuthenticationResponse>,
+        LoginRequest
+    >(`${AUTH_ENDPOINT}/login`, data);
+
+    return getApiResult(response);
+};
+
+export const refreshApi = async () => {
+    const response = await axios.post<ApiResponse<AuthenticationResponse>>(
+        `${apiUrl}${AUTH_ENDPOINT}/refresh`,
+        {},
+        {
+            withCredentials: true,
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        },
+    );
+
+    return getApiResult(response.data);
+};
+
+export const getMyProfileApi = async () => {
+    const response = await apiClient.get<
+        ApiResponse<UserProfile>,
+        ApiResponse<UserProfile>
+    >(`${AUTH_ENDPOINT}/me`);
+
+    return getApiResult(response);
+};
+
+export const logoutApi = async () => {
+    await apiClient.post<ApiResponse<void>, ApiResponse<void>>(
+        `${AUTH_ENDPOINT}/logout`,
+    );
+};
+
+export const logoutAllApi = async () => {
+    await apiClient.post<ApiResponse<void>, ApiResponse<void>>(
+        `${AUTH_ENDPOINT}/logout-all`,
+    );
+};

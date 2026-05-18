@@ -6,6 +6,7 @@ import axios, {
 } from 'axios';
 import { getApiUrl } from './api-url';
 import { useAuthStore } from '@/stores/use-auth-store';
+import { AuthenticationResponse } from '@/service/user';
 
 const apiUrl = getApiUrl();
 
@@ -102,7 +103,7 @@ apiClient.interceptors.response.use(
         const errorData = error.response?.data;
 
         // Xử lý 401 - Token hết hạn
-        if (status === 401 && originalRequest) {
+        if (status === 401 && originalRequest && !originalRequest._retry) {
             // Nếu API đang gọi lại chính là API refresh bị 401 -> Refresh token cũng đã hết hạn/invalid
             if (originalRequest.url?.includes('/auth/refresh')) {
                 useAuthStore.getState().setJwtToken(null);
@@ -132,7 +133,7 @@ apiClient.interceptors.response.use(
 
             try {
                 const refreshResponse = await axios.post<
-                    ApiResponse<{ accessToken: string }>
+                    ApiResponse<AuthenticationResponse>
                 >(`${apiUrl}/auth/refresh`, {}, { withCredentials: true });
 
                 const newToken = refreshResponse.data.result?.accessToken;
@@ -149,7 +150,7 @@ apiClient.interceptors.response.use(
                 return apiClient(originalRequest);
             } catch (refreshError) {
                 processQueue(refreshError as Error, null);
-                useAuthStore.getState().setJwtToken(null);
+                useAuthStore.getState().clearAuth();
                 return Promise.reject(
                     new ApiError('Refresh token thất bại.', { status: 401 }),
                 );

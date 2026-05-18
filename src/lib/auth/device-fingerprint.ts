@@ -1,13 +1,48 @@
 const DEVICE_FINGERPRINT_STORAGE_KEY = 'smartpark_device_fingerprint';
 const DEVICE_LABEL_STORAGE_KEY = 'smartpark_device_label';
 
-const DEV_DEVICE_FINGERPRINT = process.env.NEXT_PUBLIC_DEV_DEVICE_FINGERPRINT;
-
-const DEV_DEVICE_LABEL = process.env.NEXT_PUBLIC_DEV_DEVICE_LABEL;
+const DEMO_DEVICES = [
+    {
+        username: 'system.admin@smartpark.local',
+        fingerprint: 'seed-system-admin-device',
+        label: 'Seed System Admin Device',
+    },
+    {
+        username: 'manager@demo-parking.local',
+        fingerprint: 'seed-manager-device',
+        label: 'Seed Parking Manager Device',
+    },
+    {
+        username: 'staff@demo-parking.local',
+        fingerprint: 'seed-staff-device',
+        label: 'Seed Staff Device',
+    },
+    {
+        username: 'driver@demo-parking.local',
+        fingerprint: 'seed-driver-device',
+        label: 'Seed Parking User Device',
+    },
+] as const;
 
 const isBrowser = () => typeof window !== 'undefined';
 
-const isDevelopment = () => process.env.NODE_ENV === 'development';
+const normalizeUsername = (username?: string | null) => {
+    return username?.trim().toLowerCase() ?? '';
+};
+
+const getDemoDeviceByUsername = (username?: string | null) => {
+    const normalizedUsername = normalizeUsername(username);
+
+    if (!normalizedUsername) {
+        return null;
+    }
+
+    return (
+        DEMO_DEVICES.find(
+            (device) => device.username.toLowerCase() === normalizedUsername,
+        ) ?? null
+    );
+};
 
 const createDeviceFingerprint = () => {
     if (crypto?.randomUUID) {
@@ -23,10 +58,9 @@ const createDeviceLabel = () => {
     }
 
     const platform = navigator.platform || 'Unknown Platform';
+    const userAgent = navigator.userAgent;
 
     const browser = (() => {
-        const userAgent = navigator.userAgent;
-
         if (userAgent.includes('Firefox')) return 'Firefox';
         if (userAgent.includes('Edg')) return 'Edge';
         if (userAgent.includes('Chrome')) return 'Chrome';
@@ -38,13 +72,15 @@ const createDeviceLabel = () => {
     return `${platform} - ${browser}`;
 };
 
-export const getDeviceFingerprint = () => {
+export const getDeviceFingerprint = (username?: string | null) => {
     if (!isBrowser()) {
         return '';
     }
 
-    if (isDevelopment() && DEV_DEVICE_FINGERPRINT) {
-        return DEV_DEVICE_FINGERPRINT;
+    const demoDevice = getDemoDeviceByUsername(username);
+
+    if (demoDevice) {
+        return demoDevice.fingerprint;
     }
 
     const storedFingerprint = localStorage.getItem(
@@ -62,13 +98,15 @@ export const getDeviceFingerprint = () => {
     return fingerprint;
 };
 
-export const getDeviceLabel = () => {
+export const getDeviceLabel = (username?: string | null) => {
     if (!isBrowser()) {
         return 'Unknown Device';
     }
 
-    if (isDevelopment() && DEV_DEVICE_LABEL) {
-        return DEV_DEVICE_LABEL;
+    const demoDevice = getDemoDeviceByUsername(username);
+
+    if (demoDevice) {
+        return demoDevice.label;
     }
 
     const storedLabel = localStorage.getItem(DEVICE_LABEL_STORAGE_KEY);
