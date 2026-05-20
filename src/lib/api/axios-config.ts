@@ -95,7 +95,7 @@ apiClient.interceptors.response.use(
             });
         }
 
-        return data as unknown as AxiosResponse;
+        return response;
     },
     async (error: AxiosError<ApiResponse>) => {
         const originalRequest = error.config as RetryConfig;

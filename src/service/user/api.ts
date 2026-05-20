@@ -9,7 +9,7 @@ const AUTH_ENDPOINT = '/auth';
 const apiUrl = getApiUrl();
 
 const getApiResult = <T>(response: ApiResponse<T>): T => {
-    if (!response.result) {
+    if (typeof response.result === 'undefined') {
         throw new Error(response.message || 'Empty response result');
     }
 
@@ -17,13 +17,12 @@ const getApiResult = <T>(response: ApiResponse<T>): T => {
 };
 
 export const loginApi = async (data: LoginRequest) => {
-    const response = await apiClient.post<
-        ApiResponse<AuthenticationResponse>,
-        ApiResponse<AuthenticationResponse>,
-        LoginRequest
-    >(`${AUTH_ENDPOINT}/login`, data);
+    const response = await apiClient.post<ApiResponse<AuthenticationResponse>>(
+        `${AUTH_ENDPOINT}/login`,
+        data,
+    );
 
-    return getApiResult(response);
+    return getApiResult(response.data);
 };
 
 export const refreshApi = async () => {
@@ -43,22 +42,17 @@ export const refreshApi = async () => {
 };
 
 export const getMyProfileApi = async () => {
-    const response = await apiClient.get<
-        ApiResponse<UserProfile>,
-        ApiResponse<UserProfile>
-    >(`${AUTH_ENDPOINT}/me`);
+    const response = await apiClient.get<ApiResponse<UserProfile>>(
+        `${AUTH_ENDPOINT}/me`,
+    );
 
-    return getApiResult(response);
+    return getApiResult(response.data);
 };
 
 export const logoutApi = async () => {
-    await apiClient.post<ApiResponse<void>, ApiResponse<void>>(
-        `${AUTH_ENDPOINT}/logout`,
-    );
+    await apiClient.post<ApiResponse<void>>(`${AUTH_ENDPOINT}/logout`);
 };
 
 export const logoutAllApi = async () => {
-    await apiClient.post<ApiResponse<void>, ApiResponse<void>>(
-        `${AUTH_ENDPOINT}/logout-all`,
-    );
+    await apiClient.post<ApiResponse<void>>(`${AUTH_ENDPOINT}/logout-all`);
 };
