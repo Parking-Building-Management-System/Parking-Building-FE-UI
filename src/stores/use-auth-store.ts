@@ -1,33 +1,51 @@
-import { Role } from '@/service/user/type';
+import { UserProfile } from '@/service/user/type';
 import { create } from 'zustand';
 
-export interface User {
-    id: string;
-    name: string;
-    email: string;
-    image: string | null;
-    role: Role;
-}
-
 interface AuthState {
-    user: User | null;
+    user: UserProfile | null;
     isAuthenticated: boolean;
     isCheckingAuth: boolean;
-    setAuth: (user: User | null) => void;
     jwtToken: string | null;
+
+    setAuth: (user: UserProfile | null) => void;
     setJwtToken: (token: string | null) => void;
-    logout: () => void;
+    setCheckingAuth: (isCheckingAuth: boolean) => void;
+    setSession: (payload: { user: UserProfile; jwtToken: string }) => void;
+    clearAuth: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
     user: null,
     isAuthenticated: false,
     isCheckingAuth: true,
-    setAuth: (user) =>
-        set({ user, isAuthenticated: !!user, isCheckingAuth: false }),
     jwtToken: null,
-    setJwtToken: (token) => set({ jwtToken: token }),
-    logout: () =>
+
+    setAuth: (user) =>
+        set({
+            user,
+            isAuthenticated: !!user,
+            isCheckingAuth: false,
+        }),
+
+    setJwtToken: (token) =>
+        set({
+            jwtToken: token,
+        }),
+
+    setCheckingAuth: (isCheckingAuth) =>
+        set({
+            isCheckingAuth,
+        }),
+
+    setSession: ({ user, jwtToken }) =>
+        set({
+            user,
+            jwtToken,
+            isAuthenticated: true,
+            isCheckingAuth: false,
+        }),
+
+    clearAuth: () =>
         set({
             user: null,
             isAuthenticated: false,
