@@ -159,6 +159,18 @@ apiClient.interceptors.response.use(
             }
         }
 
+        if (status === 403) {
+            const message =
+                errorData?.message ||
+                'Access Denied: Device not trusted or insufficient permissions.';
+            const code = errorData?.code;
+            const details = errorData?.errors;
+
+            return Promise.reject(
+                new ApiError(message, { status, code, details }),
+            );
+        }
+
         const message =
             errorData?.message ||
             error.message ||
