@@ -1,11 +1,5 @@
-import { RoleWelcomeCard } from '@/components/role-welcome-card';
+import { AdminDashboard } from '@/features/admin/admin-dashboard';
 
 export default function AdminPage() {
-    return (
-        <RoleWelcomeCard
-            role="SYSTEM_ADMIN"
-            title="System Admin Dashboard"
-            description="Manage tenants, users, roles, permissions, and global SmartPark system settings."
-        />
-    );
+    return <AdminDashboard />;
 }

@@ -65,6 +65,21 @@ const getDefaultRouteByRoles = (roles: Role[]) => {
     return '/';
 };
 
+const LOCAL_TRUSTED_DEVICE_FINGERPRINTS: Record<string, string> = {
+    'manager@vincom.smartpark.local': 'seed-vincom-manager-device',
+    'manager@fpt.smartpark.local': 'seed-fpt-manager-device',
+    'manager@bcons.smartpark.local': 'seed-bcons-manager-device',
+};
+
+const getLoginDeviceFingerprint = (username: string) => {
+    const normalizedUsername = username.trim().toLowerCase();
+
+    return (
+        LOCAL_TRUSTED_DEVICE_FINGERPRINTS[normalizedUsername] ??
+        getDeviceFingerprint(username)
+    );
+};
+
 function LoginForm({ className, ...props }: React.ComponentProps<'div'>) {
     const router = useRouter();
 
@@ -83,7 +98,7 @@ function LoginForm({ className, ...props }: React.ComponentProps<'div'>) {
         mutationFn: async (values: LoginFormValues) => {
             const payload: LoginRequest = {
                 ...values,
-                deviceFingerprint: getDeviceFingerprint(values.username),
+                deviceFingerprint: getLoginDeviceFingerprint(values.username),
                 deviceLabel: getDeviceLabel(values.username),
             };
 

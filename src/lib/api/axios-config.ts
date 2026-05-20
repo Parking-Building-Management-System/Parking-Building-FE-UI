@@ -95,7 +95,7 @@ apiClient.interceptors.response.use(
             });
         }
 
-        return data as unknown as AxiosResponse;
+        return response;
     },
     async (error: AxiosError<ApiResponse>) => {
         const originalRequest = error.config as RetryConfig;
@@ -157,6 +157,18 @@ apiClient.interceptors.response.use(
             } finally {
                 isRefreshing = false;
             }
+        }
+
+        if (status === 403) {
+            const message =
+                errorData?.message ||
+                'Access Denied: Device not trusted or insufficient permissions.';
+            const code = errorData?.code;
+            const details = errorData?.errors;
+
+            return Promise.reject(
+                new ApiError(message, { status, code, details }),
+            );
         }
 
         const message =
