@@ -3,6 +3,7 @@
 import { createElement, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, LogOut, ParkingCircle } from 'lucide-react';
 
@@ -21,22 +22,26 @@ import {
 } from '@/config/navigation';
 import { getDefaultRouteByRoles } from '@/lib/auth/role-routing';
 import { cn } from '@/lib/utils';
+import {
+    listManagerDeviceApprovalsApi,
+    managerKioskDeviceQueryKeys,
+} from '@/service/manager/kiosk-device-api';
 import { logoutApi } from '@/service/user/api';
 import { useAuthStore } from '@/stores/use-auth-store';
 import { useSidebarStore } from '@/stores/use-sidebar-store';
 
-const isRouteActive = (pathname: string, href: string) => {
-    return (
-        pathname === href || (href !== '/' && pathname.startsWith(`${href}/`))
-    );
+const isLeafActive = (pathname: string, href: string) => pathname === href;
+
+const isGroupExpanded = (pathname: string, href: string) => {
+    return pathname === href || pathname.startsWith(`${href}/`);
 };
 
-const itemHasActiveRoute = (pathname: string, item: NavigationItem) => {
-    return (
-        isRouteActive(pathname, item.href) ||
-        item.children?.some((child) => isRouteActive(pathname, child.href)) ===
-            true
-    );
+const itemContainsCurrentRoute = (pathname: string, item: NavigationItem) => {
+    if (item.children?.length) {
+        return isGroupExpanded(pathname, item.href);
+    }
+
+    return isLeafActive(pathname, item.href);
 };
 
 export function Sidebar() {
@@ -53,8 +58,22 @@ export function Sidebar() {
     const roleLabel = roles.join(', ') || 'No role';
     const accordionDefaultValue = groups.flatMap((group) =>
         group.items
-            .filter((item) => item.children?.length)
+            .filter(
+                (item) =>
+                    item.children?.length &&
+                    itemContainsCurrentRoute(pathname, item),
+            )
             .map((item) => item.href),
+    );
+    const deviceApprovalsQuery = useQuery({
+        queryKey: managerKioskDeviceQueryKeys.deviceApprovals,
+        queryFn: listManagerDeviceApprovalsApi,
+        enabled: roles.includes('PARKING_MANAGER'),
+        retry: false,
+        refetchInterval: 60_000,
+    });
+    const pendingDeviceApprovals = getPendingApprovalCount(
+        deviceApprovalsQuery.data,
     );
 
     if (groups.length === 0) {
@@ -87,7 +106,7 @@ export function Sidebar() {
                 isCollapsed ? 'w-16' : 'w-72',
             )}
         >
-            <div className="flex h-16 items-center gap-3 border-b px-3">
+            <div className="flex h-16 shrink-0 items-center gap-3 border-b px-3">
                 <Link
                     href={homeHref}
                     className="flex min-w-0 flex-1 items-center gap-3"
@@ -120,7 +139,7 @@ export function Sidebar() {
                 </Button>
             </div>
 
-            <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
+            <nav className="min-h-0 flex-1 space-y-6 overflow-y-auto px-3 py-4">
                 {groups.map((group) => (
                     <div key={group.role} className="space-y-2">
                         <p
@@ -151,6 +170,12 @@ export function Sidebar() {
                                             key={item.href}
                                             item={item}
                                             pathname={pathname}
+                                            pendingDeviceApprovals={
+                                                pendingDeviceApprovals
+                                            }
+                                            pendingDeviceApprovalsLoading={
+                                                deviceApprovalsQuery.isLoading
+                                            }
                                         />
                                     ))}
                                 </Accordion>
@@ -160,7 +185,7 @@ export function Sidebar() {
                 ))}
             </nav>
 
-            <div className="border-t p-3">
+            <div className="shrink-0 border-t p-3">
                 <div
                     className={cn(
                         'flex items-center gap-3',
@@ -215,7 +240,7 @@ function CollapsedNavItem({
     item: NavigationItem;
     pathname: string;
 }) {
-    const isActive = itemHasActiveRoute(pathname, item);
+    const isActive = itemContainsCurrentRoute(pathname, item);
 
     return (
         <Button
@@ -237,11 +262,16 @@ function CollapsedNavItem({
 function NavItem({
     item,
     pathname,
+    pendingDeviceApprovals,
+    pendingDeviceApprovalsLoading,
 }: {
     item: NavigationItem;
     pathname: string;
+    pendingDeviceApprovals: number;
+    pendingDeviceApprovalsLoading: boolean;
 }) {
-    const isActive = itemHasActiveRoute(pathname, item);
+    const isActive = isLeafActive(pathname, item.href);
+    const isExpanded = itemContainsCurrentRoute(pathname, item);
 
     if (!item.children?.length) {
         return (
@@ -266,7 +296,7 @@ function NavItem({
             <AccordionTrigger
                 className={cn(
                     'h-8 rounded-lg px-2.5 py-0 text-sm hover:no-underline',
-                    isActive && 'bg-secondary text-secondary-foreground',
+                    isExpanded && 'text-foreground',
                 )}
             >
                 <span className="flex min-w-0 items-center gap-1.5">
@@ -280,12 +310,25 @@ function NavItem({
                 <ChildNavLink
                     child={{ title: 'Overview', href: item.href }}
                     pathname={pathname}
+                    pendingCount={0}
+                    pendingLoading={false}
                 />
                 {item.children.map((child) => (
                     <ChildNavLink
                         key={child.href}
                         child={child}
                         pathname={pathname}
+                        pendingCount={
+                            child.href ===
+                            '/manager/staff-devices/device-approvals'
+                                ? pendingDeviceApprovals
+                                : 0
+                        }
+                        pendingLoading={
+                            child.href ===
+                                '/manager/staff-devices/device-approvals' &&
+                            pendingDeviceApprovalsLoading
+                        }
                     />
                 ))}
             </AccordionContent>
@@ -296,9 +339,13 @@ function NavItem({
 function ChildNavLink({
     child,
     pathname,
+    pendingCount,
+    pendingLoading,
 }: {
     child: NavigationChildItem;
     pathname: string;
+    pendingCount: number;
+    pendingLoading: boolean;
 }) {
     const isActive = pathname === child.href;
 
@@ -312,7 +359,28 @@ function ChildNavLink({
         >
             <Link href={child.href}>
                 <span className="truncate">{child.title}</span>
+                {pendingLoading ? (
+                    <span className="bg-muted-foreground/40 ml-auto size-1.5 shrink-0 rounded-full" />
+                ) : pendingCount > 0 ? (
+                    <span className="bg-primary text-primary-foreground ml-auto inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-[10px] leading-none">
+                        {pendingCount > 99 ? '99+' : pendingCount}
+                    </span>
+                ) : null}
             </Link>
         </Button>
     );
+}
+
+function getPendingApprovalCount(
+    items?: { status: string }[] & { totalElements?: number },
+) {
+    if (!items) {
+        return 0;
+    }
+
+    if (typeof items.totalElements === 'number') {
+        return items.totalElements;
+    }
+
+    return items.filter((item) => item.status === 'PENDING').length;
 }

@@ -86,13 +86,37 @@ export function MasterDataConfig() {
 
     const deleteMutation = useMutation({
         mutationFn: deleteVehicleType,
-        onSuccess: () => {
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({
+                queryKey: adminQueryKeys.vehicleTypes,
+            });
+
+            const previousVehicleTypes =
+                queryClient.getQueryData<VehicleTypeItem[]>(
+                    adminQueryKeys.vehicleTypes,
+                );
+
+            queryClient.setQueryData<VehicleTypeItem[]>(
+                adminQueryKeys.vehicleTypes,
+                (current) => current?.filter((type) => type.id !== id) ?? [],
+            );
+
+            return { previousVehicleTypes };
+        },
+        onSuccess: async () => {
             toast.success('Vehicle type deleted.');
-            queryClient.invalidateQueries({
+            await queryClient.invalidateQueries({
                 queryKey: adminQueryKeys.vehicleTypes,
             });
         },
-        onError: (error) => {
+        onError: (error, _id, context) => {
+            if (context?.previousVehicleTypes) {
+                queryClient.setQueryData(
+                    adminQueryKeys.vehicleTypes,
+                    context.previousVehicleTypes,
+                );
+            }
+
             toast.error(
                 getErrorMessage(error, 'Failed to delete vehicle type.'),
             );

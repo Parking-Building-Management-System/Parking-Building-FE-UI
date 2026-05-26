@@ -1,6 +1,6 @@
 'use client';
 
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
     keepPreviousData,
     useMutation,
@@ -11,10 +11,11 @@ import {
     CheckCircle2,
     ChevronLeft,
     ChevronRight,
-    Download,
     MoreHorizontal,
+    Pencil,
+    Plus,
     Search,
-    Upload,
+    Trash2,
     Wrench,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -22,6 +23,14 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -36,7 +45,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
     Table,
     TableBody,
@@ -49,50 +57,83 @@ import { getErrorMessage } from '@/features/admin/error-message';
 import { cn } from '@/lib/utils';
 import {
     bulkUpdateSlotStatusApi,
-    exportSlotsApi,
-    importSlotsApi,
+    createSlotApi,
+    deleteSlotApi,
+    listFloorsApi,
+    listParkingsApi,
     listSlotsApi,
+    listZonesApi,
     managerFacilityQueryKeys,
+    updateSlotApi,
+    updateSlotStatusApi,
 } from '@/service/manager/facility-api';
 import {
+    slotBulkStatusValues,
     slotStatusValues,
     type SlotBulkStatus,
+    type SlotRequest,
     type SlotResponse,
     type SlotSearchParams,
     type SlotStatus,
 } from '@/service/manager/facility-type';
+import { EmptyState, FacilityHeader, SimpleSkeleton } from './floor-management';
 
 const DEFAULT_PAGE = 0;
 const DEFAULT_PAGE_SIZE = 20;
 const ALL_STATUSES = 'ALL_STATUSES';
+const ALL_FLOORS = 'ALL_FLOORS';
+const ALL_ZONES = 'ALL_ZONES';
 const SLOT_PAGE_SIZES = [10, 20, 50, 100] as const;
 
 type SlotStatusFilter = SlotStatus | typeof ALL_STATUSES;
-type VisibleBulkStatus = Extract<SlotBulkStatus, 'AVAILABLE' | 'MAINTENANCE'>;
+
+interface SlotDialogState {
+    open: boolean;
+    slot?: SlotResponse;
+}
 
 export function SlotManagement() {
-    const fileInputRef = useRef<HTMLInputElement>(null);
     const queryClient = useQueryClient();
+    const [parkingId, setParkingId] = useState('');
+    const [floorId, setFloorId] = useState(ALL_FLOORS);
+    const [zoneId, setZoneId] = useState(ALL_ZONES);
     const [slotCode, setSlotCode] = useState('');
-    const [zoneId, setZoneId] = useState('');
     const [status, setStatus] = useState<SlotStatusFilter>(ALL_STATUSES);
     const [exact, setExact] = useState(false);
     const [page, setPage] = useState(DEFAULT_PAGE);
     const [size, setSize] = useState(DEFAULT_PAGE_SIZE);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [dialog, setDialog] = useState<SlotDialogState>({ open: false });
     const deferredSlotCode = useDeferredValue(slotCode);
-    const deferredZoneId = useDeferredValue(zoneId);
+
+    const parkingsQuery = useQuery({
+        queryKey: managerFacilityQueryKeys.parkings,
+        queryFn: listParkingsApi,
+    });
+    const activeParkingId = parkingId || parkingsQuery.data?.[0]?.id || '';
+    const floorsQuery = useQuery({
+        queryKey: managerFacilityQueryKeys.floors(activeParkingId),
+        queryFn: () => listFloorsApi(activeParkingId),
+        enabled: !!activeParkingId,
+    });
+    const activeFloorId =
+        floorId === ALL_FLOORS ? floorsQuery.data?.[0]?.id || '' : floorId;
+    const zonesQuery = useQuery({
+        queryKey: managerFacilityQueryKeys.zones(activeFloorId),
+        queryFn: () => listZonesApi(activeFloorId),
+        enabled: !!activeFloorId,
+    });
 
     const queryParams = useMemo<SlotSearchParams>(
         () => ({
             page,
             size,
-            zoneId: deferredZoneId.trim() || undefined,
+            zoneId: zoneId === ALL_ZONES ? undefined : zoneId,
             status: status === ALL_STATUSES ? undefined : status,
             slotCode: deferredSlotCode.trim() || undefined,
             exact,
         }),
-        [deferredSlotCode, deferredZoneId, exact, page, size, status],
+        [deferredSlotCode, exact, page, size, status, zoneId],
     );
 
     const {
@@ -116,12 +157,7 @@ export function SlotManagement() {
                 }.`,
             );
             setSelectedIds([]);
-            queryClient.invalidateQueries({
-                queryKey: managerFacilityQueryKeys.slots,
-            });
-            queryClient.invalidateQueries({
-                queryKey: managerFacilityQueryKeys.parkings,
-            });
+            invalidateSlots(queryClient);
         },
         onError: (error) => {
             toast.error(
@@ -130,32 +166,28 @@ export function SlotManagement() {
         },
     });
 
-    const importMutation = useMutation({
-        mutationFn: importSlotsApi,
-        onSuccess: (result) => {
-            toast.success(
-                `${result.insertedCount.toLocaleString()} slots imported.`,
-            );
-            queryClient.invalidateQueries({
-                queryKey: managerFacilityQueryKeys.slots,
-            });
-            queryClient.invalidateQueries({
-                queryKey: managerFacilityQueryKeys.parkings,
-            });
+    const deleteMutation = useMutation({
+        mutationFn: deleteSlotApi,
+        onSuccess: () => {
+            toast.success('Slot deleted.');
+            invalidateSlots(queryClient);
         },
         onError: (error) => {
-            toast.error(getErrorMessage(error, 'Failed to import slots.'));
+            toast.error(getErrorMessage(error, 'Failed to delete slot.'));
         },
     });
 
-    const exportMutation = useMutation({
-        mutationFn: exportSlotsApi,
-        onSuccess: (file) => {
-            downloadExportFile(file.blob, file.filename);
-            toast.success('Slots exported.');
+    const statusMutation = useMutation({
+        mutationFn: ({ id, status }: { id: string; status: SlotStatus }) =>
+            updateSlotStatusApi(id, { status }),
+        onSuccess: () => {
+            toast.success('Slot status updated.');
+            invalidateSlots(queryClient);
         },
         onError: (error) => {
-            toast.error(getErrorMessage(error, 'Failed to export slots.'));
+            toast.error(
+                getErrorMessage(error, 'Failed to update slot status.'),
+            );
         },
     });
 
@@ -177,6 +209,7 @@ export function SlotManagement() {
     const totalPages = slotPage?.totalPages ?? 0;
     const canGoPrevious = page > 0;
     const canGoNext = totalPages > 0 && page + 1 < totalPages;
+    const zones = zonesQuery.data ?? [];
 
     const toggleSlot = (slotId: string, checked: boolean) => {
         setSelectedIds((current) =>
@@ -196,7 +229,7 @@ export function SlotManagement() {
         });
     };
 
-    const runBulkStatusUpdate = (newStatus: VisibleBulkStatus) => {
+    const runBulkStatusUpdate = (newStatus: SlotBulkStatus) => {
         if (selectedIds.length === 0) {
             return;
         }
@@ -207,81 +240,90 @@ export function SlotManagement() {
         });
     };
 
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        event.target.value = '';
-
-        if (file) {
-            importMutation.mutate(file);
-        }
-    };
-
     return (
         <div className="space-y-6 p-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                <div>
-                    <p className="text-muted-foreground text-sm font-medium">
-                        PARKING_MANAGER
-                    </p>
-                    <h1 className="mt-2 text-3xl font-semibold tracking-normal">
-                        Slot Management
-                    </h1>
-                    <p className="text-muted-foreground mt-2 max-w-2xl text-sm">
-                        Search tenant-scoped slots, bulk update statuses, and
-                        move Excel files through the manager API.
-                    </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".xlsx,.xls"
-                        className="hidden"
-                        onChange={handleFileChange}
-                    />
-                    <Button
-                        variant="outline"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={importMutation.isPending}
-                    >
-                        <Upload data-icon="inline-start" />
-                        {importMutation.isPending ? 'Importing...' : 'Import'}
-                    </Button>
-                    <Button
-                        onClick={() => exportMutation.mutate()}
-                        disabled={exportMutation.isPending}
-                    >
-                        <Download data-icon="inline-start" />
-                        {exportMutation.isPending ? 'Exporting...' : 'Export'}
-                    </Button>
-                </div>
+                <FacilityHeader
+                    title="Slots"
+                    description="Search tenant slots, create slots under a zone, and update individual or bulk statuses."
+                />
+                <Button
+                    disabled={zoneId === ALL_ZONES}
+                    onClick={() => setDialog({ open: true })}
+                >
+                    <Plus data-icon="inline-start" />
+                    Create Slot
+                </Button>
             </div>
 
             <Card>
                 <CardHeader>
                     <CardTitle>Filters</CardTitle>
                 </CardHeader>
-                <CardContent className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_220px_120px]">
-                    <div className="relative">
-                        <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-                        <Input
-                            className="pl-8"
-                            placeholder="Search slot code"
-                            value={slotCode}
-                            onChange={(event) => {
-                                setPage(DEFAULT_PAGE);
-                                setSlotCode(event.target.value);
-                            }}
-                        />
-                    </div>
-                    <Input
-                        placeholder="Filter by zone ID"
-                        value={zoneId}
-                        onChange={(event) => {
+                <CardContent className="grid gap-3 lg:grid-cols-3 xl:grid-cols-6">
+                    <Select
+                        value={activeParkingId}
+                        onValueChange={(value) => {
                             setPage(DEFAULT_PAGE);
-                            setZoneId(event.target.value);
+                            setParkingId(value);
+                            setFloorId(ALL_FLOORS);
+                            setZoneId(ALL_ZONES);
                         }}
-                    />
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Parking" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {(parkingsQuery.data ?? []).map((parking) => (
+                                <SelectItem key={parking.id} value={parking.id}>
+                                    {parking.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Select
+                        value={floorId}
+                        disabled={!activeParkingId}
+                        onValueChange={(value) => {
+                            setPage(DEFAULT_PAGE);
+                            setFloorId(value);
+                            setZoneId(ALL_ZONES);
+                        }}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Floor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value={ALL_FLOORS}>
+                                All floors
+                            </SelectItem>
+                            {(floorsQuery.data ?? []).map((floor) => (
+                                <SelectItem key={floor.id} value={floor.id}>
+                                    {floor.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Select
+                        value={zoneId}
+                        disabled={!activeFloorId}
+                        onValueChange={(value) => {
+                            setPage(DEFAULT_PAGE);
+                            setZoneId(value);
+                        }}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Zone" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value={ALL_ZONES}>All zones</SelectItem>
+                            {zones.map((zone) => (
+                                <SelectItem key={zone.id} value={zone.id}>
+                                    {zone.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                     <Select
                         value={status}
                         onValueChange={(value) => {
@@ -303,6 +345,18 @@ export function SlotManagement() {
                             ))}
                         </SelectContent>
                     </Select>
+                    <div className="relative">
+                        <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+                        <Input
+                            className="pl-8"
+                            placeholder="Search code"
+                            value={slotCode}
+                            onChange={(event) => {
+                                setPage(DEFAULT_PAGE);
+                                setSlotCode(event.target.value);
+                            }}
+                        />
+                    </div>
                     <label className="border-input bg-background flex h-8 items-center gap-2 rounded-lg border px-2.5 text-sm shadow-xs">
                         <Checkbox
                             checked={exact}
@@ -341,20 +395,21 @@ export function SlotManagement() {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                                onClick={() => runBulkStatusUpdate('AVAILABLE')}
-                            >
-                                <CheckCircle2 />
-                                Mark Available
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onClick={() =>
-                                    runBulkStatusUpdate('MAINTENANCE')
-                                }
-                            >
-                                <Wrench />
-                                Mark Maintenance
-                            </DropdownMenuItem>
+                            {slotBulkStatusValues.map((bulkStatus) => (
+                                <DropdownMenuItem
+                                    key={bulkStatus}
+                                    onClick={() =>
+                                        runBulkStatusUpdate(bulkStatus)
+                                    }
+                                >
+                                    {bulkStatus === 'AVAILABLE' ? (
+                                        <CheckCircle2 />
+                                    ) : (
+                                        <Wrench />
+                                    )}
+                                    Mark {bulkStatus}
+                                </DropdownMenuItem>
+                            ))}
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </CardHeader>
@@ -382,10 +437,13 @@ export function SlotManagement() {
                                 <TableHead>Floor</TableHead>
                                 <TableHead>Zone</TableHead>
                                 <TableHead>Status</TableHead>
+                                <TableHead className="text-right">
+                                    Actions
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {isLoading && <SlotTableSkeleton />}
+                            {isLoading && <SimpleSkeleton colSpan={8} />}
 
                             {!isLoading &&
                                 slots.map((slot) => (
@@ -393,8 +451,29 @@ export function SlotManagement() {
                                         key={slot.id}
                                         slot={slot}
                                         selected={selectedIds.includes(slot.id)}
+                                        statusPending={
+                                            statusMutation.isPending &&
+                                            statusMutation.variables?.id ===
+                                                slot.id
+                                        }
+                                        deletePending={
+                                            deleteMutation.isPending &&
+                                            deleteMutation.variables === slot.id
+                                        }
                                         onSelectedChange={(checked) =>
                                             toggleSlot(slot.id, checked)
+                                        }
+                                        onEdit={() =>
+                                            setDialog({ open: true, slot })
+                                        }
+                                        onDelete={() =>
+                                            deleteMutation.mutate(slot.id)
+                                        }
+                                        onStatus={(newStatus) =>
+                                            statusMutation.mutate({
+                                                id: slot.id,
+                                                status: newStatus,
+                                            })
                                         }
                                     />
                                 ))}
@@ -402,7 +481,7 @@ export function SlotManagement() {
                             {!isLoading && slots.length === 0 && (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={7}
+                                        colSpan={8}
                                         className="text-muted-foreground h-28 text-center"
                                     >
                                         No slots found.
@@ -467,6 +546,20 @@ export function SlotManagement() {
                     </div>
                 </CardContent>
             </Card>
+
+            <SlotDialog
+                key={dialog.slot?.id ?? 'create'}
+                open={dialog.open}
+                slot={dialog.slot}
+                zoneId={zoneId === ALL_ZONES ? '' : zoneId}
+                onOpenChange={(open) =>
+                    setDialog((current) => ({
+                        ...current,
+                        open,
+                        slot: open ? current.slot : undefined,
+                    }))
+                }
+            />
         </div>
     );
 }
@@ -474,11 +567,21 @@ export function SlotManagement() {
 function SlotTableRow({
     slot,
     selected,
+    statusPending,
+    deletePending,
     onSelectedChange,
+    onEdit,
+    onDelete,
+    onStatus,
 }: {
     slot: SlotResponse;
     selected: boolean;
+    statusPending: boolean;
+    deletePending: boolean;
     onSelectedChange: (checked: boolean) => void;
+    onEdit: () => void;
+    onDelete: () => void;
+    onStatus: (status: SlotStatus) => void;
 }) {
     return (
         <TableRow data-state={selected ? 'selected' : undefined}>
@@ -506,39 +609,161 @@ function SlotTableRow({
                     {slot.status}
                 </span>
             </TableCell>
+            <TableCell className="text-right">
+                <div className="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={onEdit}>
+                        <Pencil data-icon="inline-start" />
+                        Edit
+                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="outline"
+                                size="icon-sm"
+                                disabled={statusPending}
+                            >
+                                <MoreHorizontal />
+                                <span className="sr-only">Slot actions</span>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {slotStatusValues.map((status) => (
+                                <DropdownMenuItem
+                                    key={status}
+                                    disabled={status === slot.status}
+                                    onClick={() => onStatus(status)}
+                                >
+                                    Mark {status}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={deletePending}
+                        onClick={onDelete}
+                    >
+                        <Trash2 data-icon="inline-start" />
+                        Delete
+                    </Button>
+                </div>
+            </TableCell>
         </TableRow>
     );
 }
 
-function SlotTableSkeleton() {
+function SlotDialog({
+    open,
+    slot,
+    zoneId,
+    onOpenChange,
+}: {
+    open: boolean;
+    slot?: SlotResponse;
+    zoneId: string;
+    onOpenChange: (open: boolean) => void;
+}) {
+    const queryClient = useQueryClient();
+    const [form, setForm] = useState<SlotRequest>({
+        code: slot?.code ?? '',
+        slotNumber: slot?.slotNumber ?? '',
+        status: slot?.status ?? 'AVAILABLE',
+    });
+
+    const mutation = useMutation({
+        mutationFn: () =>
+            slot ? updateSlotApi(slot.id, form) : createSlotApi(zoneId, form),
+        onSuccess: () => {
+            toast.success(slot ? 'Slot updated.' : 'Slot created.');
+            invalidateSlots(queryClient);
+            onOpenChange(false);
+        },
+        onError: (error) => {
+            toast.error(
+                getErrorMessage(
+                    error,
+                    slot ? 'Failed to update slot.' : 'Failed to create slot.',
+                ),
+            );
+        },
+    });
+
     return (
-        <>
-            {Array.from({ length: 8 }).map((_, index) => (
-                <TableRow key={index}>
-                    <TableCell>
-                        <Skeleton className="size-4" />
-                    </TableCell>
-                    <TableCell>
-                        <Skeleton className="h-5 w-24" />
-                    </TableCell>
-                    <TableCell>
-                        <Skeleton className="h-5 w-28" />
-                    </TableCell>
-                    <TableCell>
-                        <Skeleton className="h-5 w-40" />
-                    </TableCell>
-                    <TableCell>
-                        <Skeleton className="h-5 w-28" />
-                    </TableCell>
-                    <TableCell>
-                        <Skeleton className="h-5 w-36" />
-                    </TableCell>
-                    <TableCell>
-                        <Skeleton className="h-5 w-24" />
-                    </TableCell>
-                </TableRow>
-            ))}
-        </>
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{slot ? 'Edit slot' : 'Create slot'}</DialogTitle>
+                    <DialogDescription>
+                        Create uses the selected zone. Slot updates keep the
+                        existing backend parent relationships.
+                    </DialogDescription>
+                </DialogHeader>
+                {!slot && !zoneId ? (
+                    <EmptyState message="Select a specific zone before creating a slot." />
+                ) : (
+                    <form
+                        className="space-y-4"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            mutation.mutate();
+                        }}
+                    >
+                        <Input
+                            placeholder="Slot code"
+                            value={form.code}
+                            disabled={mutation.isPending}
+                            onChange={(event) =>
+                                setForm((current) => ({
+                                    ...current,
+                                    code: event.target.value,
+                                }))
+                            }
+                        />
+                        <Input
+                            placeholder="Slot number"
+                            value={form.slotNumber}
+                            disabled={mutation.isPending}
+                            onChange={(event) =>
+                                setForm((current) => ({
+                                    ...current,
+                                    slotNumber: event.target.value,
+                                }))
+                            }
+                        />
+                        <Select
+                            value={form.status ?? 'AVAILABLE'}
+                            disabled={mutation.isPending}
+                            onValueChange={(value) =>
+                                setForm((current) => ({
+                                    ...current,
+                                    status: value as SlotStatus,
+                                }))
+                            }
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {slotStatusValues.map((status) => (
+                                    <SelectItem key={status} value={status}>
+                                        {status}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <DialogFooter>
+                            <Button
+                                type="submit"
+                                disabled={mutation.isPending}
+                            >
+                                {mutation.isPending ? 'Saving...' : 'Save'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                )}
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -559,13 +784,11 @@ function getSlotStatusClass(status: SlotStatus) {
     }
 }
 
-function downloadExportFile(blob: Blob, filename: string) {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+function invalidateSlots(queryClient: ReturnType<typeof useQueryClient>) {
+    queryClient.invalidateQueries({
+        queryKey: managerFacilityQueryKeys.slots,
+    });
+    queryClient.invalidateQueries({
+        queryKey: managerFacilityQueryKeys.parkings,
+    });
 }

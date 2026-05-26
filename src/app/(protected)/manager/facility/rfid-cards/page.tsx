@@ -1,8 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { RfidCardManagement } from '@/features/manager/rfid-card-management';
 
 export default function RfidCardsPage() {
-    return (
-        <MockModulePage {...mockModulePages['/manager/facility/rfid-cards']} />
-    );
+    return <RfidCardManagement />;
 }

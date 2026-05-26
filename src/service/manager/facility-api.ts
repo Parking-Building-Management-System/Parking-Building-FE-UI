@@ -5,15 +5,23 @@ import type {
     FloorRequest,
     FloorResponse,
     GlobalVehicleTypeResponse,
+    ParkingRequest,
     ParkingResponse,
     ParkingStatusResponse,
     ParkingTopologyResponse,
+    RfidCardGenerateRequest,
+    RfidCardListParams,
+    RfidCardPageResponse,
+    RfidCardResponse,
+    RfidCardStatusRequest,
     SlotBulkStatusRequest,
     SlotBulkStatusResponse,
     SlotExportFile,
     SlotImportResponse,
+    SlotRequest,
     SlotPageResponse,
     SlotSearchParams,
+    SlotResponse,
     ZoneRequest,
     ZoneResponse,
 } from '@/service/manager/facility-type';
@@ -49,6 +57,8 @@ const parseExportFilename = (contentDisposition?: string) => {
 
 export const managerFacilityQueryKeys = {
     parkings: ['manager', 'facility', 'parkings'] as const,
+    parking: (parkingId: string) =>
+        ['manager', 'facility', 'parkings', parkingId] as const,
     topology: (parkingId: string) =>
         ['manager', 'facility', 'parkings', parkingId, 'topology'] as const,
     floors: (parkingId: string) =>
@@ -61,6 +71,10 @@ export const managerFacilityQueryKeys = {
     slots: ['manager', 'facility', 'slots'] as const,
     slotList: (params: SlotSearchParams) =>
         ['manager', 'facility', 'slots', params] as const,
+    slot: (slotId: string) => ['manager', 'facility', 'slots', slotId] as const,
+    rfidCards: ['manager', 'facility', 'rfid-cards'] as const,
+    rfidCardList: (params: RfidCardListParams) =>
+        ['manager', 'facility', 'rfid-cards', params] as const,
     vehicleTypes: ['manager', 'facility', 'vehicle-types'] as const,
 };
 
@@ -72,9 +86,49 @@ export const listParkingsApi = async () => {
     return getApiResult(response);
 };
 
+export const createParkingApi = async (data: ParkingRequest) => {
+    const response = await apiClient.post<
+        ApiResponse<ParkingResponse>,
+        AxiosResponse<ApiResponse<ParkingResponse>>,
+        ParkingRequest
+    >(`${MANAGER_ENDPOINT}/parkings`, data);
+
+    return getApiResult(response);
+};
+
+export const getParkingApi = async (id: string) => {
+    const response = await apiClient.get<ApiResponse<ParkingResponse>>(
+        `${MANAGER_ENDPOINT}/parkings/${id}`,
+    );
+
+    return getApiResult(response);
+};
+
+export const updateParkingApi = async (id: string, data: ParkingRequest) => {
+    const response = await apiClient.put<
+        ApiResponse<ParkingResponse>,
+        AxiosResponse<ApiResponse<ParkingResponse>>,
+        ParkingRequest
+    >(`${MANAGER_ENDPOINT}/parkings/${id}`, data);
+
+    return getApiResult(response);
+};
+
 export const toggleParkingStatusApi = async (id: string) => {
     const response = await apiClient.patch<ApiResponse<ParkingStatusResponse>>(
         `${MANAGER_ENDPOINT}/parkings/${id}/status`,
+    );
+
+    return getApiResult(response);
+};
+
+export const updateParkingStatusApi = async (
+    id: string,
+    data: Pick<ParkingRequest, 'status'>,
+) => {
+    const response = await apiClient.patch<ApiResponse<ParkingStatusResponse>>(
+        `${MANAGER_ENDPOINT}/parkings/${id}/status`,
+        data,
     );
 
     return getApiResult(response);
@@ -181,6 +235,51 @@ export const listSlotsApi = async (params: SlotSearchParams) => {
     return getApiResult(response);
 };
 
+export const createSlotApi = async (zoneId: string, data: SlotRequest) => {
+    const response = await apiClient.post<
+        ApiResponse<SlotResponse>,
+        AxiosResponse<ApiResponse<SlotResponse>>,
+        SlotRequest
+    >(`${MANAGER_ENDPOINT}/zones/${zoneId}/slots`, data);
+
+    return getApiResult(response);
+};
+
+export const getSlotApi = async (id: string) => {
+    const response = await apiClient.get<ApiResponse<SlotResponse>>(
+        `${MANAGER_ENDPOINT}/slots/${id}`,
+    );
+
+    return getApiResult(response);
+};
+
+export const updateSlotApi = async (id: string, data: SlotRequest) => {
+    const response = await apiClient.put<
+        ApiResponse<SlotResponse>,
+        AxiosResponse<ApiResponse<SlotResponse>>,
+        SlotRequest
+    >(`${MANAGER_ENDPOINT}/slots/${id}`, data);
+
+    return getApiResult(response);
+};
+
+export const deleteSlotApi = async (id: string) => {
+    await apiClient.delete<ApiResponse<null>>(`${MANAGER_ENDPOINT}/slots/${id}`);
+};
+
+export const updateSlotStatusApi = async (
+    id: string,
+    data: Pick<SlotRequest, 'status'>,
+) => {
+    const response = await apiClient.patch<
+        ApiResponse<SlotResponse>,
+        AxiosResponse<ApiResponse<SlotResponse>>,
+        Pick<SlotRequest, 'status'>
+    >(`${MANAGER_ENDPOINT}/slots/${id}/status`, data);
+
+    return getApiResult(response);
+};
+
 export const bulkUpdateSlotStatusApi = async (data: SlotBulkStatusRequest) => {
     const response = await apiClient.patch<
         ApiResponse<SlotBulkStatusResponse>,
@@ -233,6 +332,40 @@ export const listGlobalVehicleTypesApi = async () => {
     const response = await apiClient.get<
         ApiResponse<GlobalVehicleTypeResponse[]>
     >(`${MANAGER_ENDPOINT}/master-data/vehicle-types`);
+
+    return getApiResult(response);
+};
+
+export const listRfidCardsApi = async (params: RfidCardListParams) => {
+    const response = await apiClient.get<ApiResponse<RfidCardPageResponse>>(
+        `${MANAGER_ENDPOINT}/rfid-cards`,
+        { params },
+    );
+
+    return getApiResult(response);
+};
+
+export const generateRfidCardsApi = async (
+    data: RfidCardGenerateRequest,
+) => {
+    const response = await apiClient.post<
+        ApiResponse<RfidCardPageResponse | RfidCardResponse[]>,
+        AxiosResponse<ApiResponse<RfidCardPageResponse | RfidCardResponse[]>>,
+        RfidCardGenerateRequest
+    >(`${MANAGER_ENDPOINT}/rfid-cards/generate`, data);
+
+    return getApiResult(response);
+};
+
+export const updateRfidCardStatusApi = async (
+    id: string,
+    data: RfidCardStatusRequest,
+) => {
+    const response = await apiClient.patch<
+        ApiResponse<RfidCardResponse>,
+        AxiosResponse<ApiResponse<RfidCardResponse>>,
+        RfidCardStatusRequest
+    >(`${MANAGER_ENDPOINT}/rfid-cards/${id}/status`, data);
 
     return getApiResult(response);
 };

@@ -14,6 +14,15 @@ export interface UserProfile {
     phone: string;
     roles: Role[];
     permissions: string[];
+    workContext?: StaffWorkContext | null;
+}
+
+export interface StaffWorkContext {
+    kioskId: string;
+    kioskName: string;
+    kioskType: 'ENTRY' | 'EXIT' | 'BOTH';
+    parkingId: string;
+    parkingName: string;
 }
 
 export interface AuthenticationResponse {

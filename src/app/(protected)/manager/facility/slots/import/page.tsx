@@ -1,10 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { SlotImportExport } from '@/features/manager/slot-import-export';
 
 export default function SlotImportExportPage() {
-    return (
-        <MockModulePage
-            {...mockModulePages['/manager/facility/slots/import']}
-        />
-    );
+    return <SlotImportExport />;
 }

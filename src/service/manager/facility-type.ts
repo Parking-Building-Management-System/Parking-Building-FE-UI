@@ -31,6 +31,9 @@ export type ParkingStatus = (typeof parkingStatusValues)[number];
 export type ZoneStatus = (typeof zoneStatusValues)[number];
 export type SlotStatus = (typeof slotStatusValues)[number];
 export type SlotBulkStatus = (typeof slotBulkStatusValues)[number];
+export const rfidCardStatusValues = ['ACTIVE', 'INACTIVE', 'LOST'] as const;
+export const rfidCardStatusSchema = z.enum(rfidCardStatusValues);
+export type RfidCardStatus = (typeof rfidCardStatusValues)[number];
 
 export interface ApiPageResponse<T> {
     content: T[];
@@ -47,6 +50,13 @@ export interface ParkingResponse {
     address: string | null;
     totalCapacity: number;
     status: ParkingStatus;
+}
+
+export interface ParkingRequest {
+    code: string;
+    name: string;
+    address?: string | null;
+    status?: ParkingStatus | null;
 }
 
 export interface ParkingStatusResponse {
@@ -131,6 +141,12 @@ export interface SlotResponse {
     status: SlotStatus;
 }
 
+export interface SlotRequest {
+    code: string;
+    slotNumber: string;
+    status?: SlotStatus | null;
+}
+
 export interface SlotSearchParams {
     zoneId?: string;
     status?: SlotStatus;
@@ -159,6 +175,28 @@ export interface SlotExportFile {
     filename: string;
 }
 
+export interface RfidCardResponse {
+    id: string;
+    code: string;
+    status: RfidCardStatus;
+    createdAt?: string;
+}
+
+export interface RfidCardListParams {
+    status?: RfidCardStatus;
+    page?: number;
+    size?: number;
+}
+
+export interface RfidCardGenerateRequest {
+    count?: number;
+    prefix?: string;
+}
+
+export interface RfidCardStatusRequest {
+    status: RfidCardStatus;
+}
+
 export interface GlobalVehicleTypeResponse {
     id: string;
     name: string;
@@ -166,6 +204,13 @@ export interface GlobalVehicleTypeResponse {
     active: boolean;
     createdAt?: string;
 }
+
+export const parkingRequestSchema = z.object({
+    code: z.string().trim().min(1, 'Parking code is required.').max(50),
+    name: z.string().trim().min(1, 'Parking name is required.').max(100),
+    address: z.string().trim().max(255).optional().nullable(),
+    status: parkingStatusSchema.nullish(),
+});
 
 export const floorRequestSchema = z.object({
     code: z.string().trim().min(1, 'Floor code is required.').max(50),
@@ -202,10 +247,33 @@ export const slotSearchParamsSchema = z.object({
     size: z.number().int().min(1).max(100).optional(),
 });
 
+export const slotRequestSchema = z.object({
+    code: z.string().trim().min(1, 'Slot code is required.').max(50),
+    slotNumber: z
+        .string()
+        .trim()
+        .min(1, 'Slot number is required.')
+        .max(50),
+    status: slotStatusSchema.nullish(),
+});
+
 export const slotBulkStatusRequestSchema = z.object({
     slotIds: z.array(z.string().trim().min(1)).min(1),
     newStatus: slotBulkStatusSchema,
 });
 
+export const rfidCardGenerateRequestSchema = z.object({
+    count: z
+        .number()
+        .int('Count must be an integer.')
+        .min(1, 'Count must be at least 1.')
+        .max(10000, 'Count must be 10,000 or fewer.')
+        .optional(),
+    prefix: z.string().trim().max(20).optional(),
+});
+
 export type CreateZoneFormValues = z.infer<typeof createZoneFormSchema>;
+export type ParkingFormValues = z.infer<typeof parkingRequestSchema>;
+export type SlotFormValues = z.infer<typeof slotRequestSchema>;
 export type SlotPageResponse = ApiPageResponse<SlotResponse>;
+export type RfidCardPageResponse = ApiPageResponse<RfidCardResponse>;

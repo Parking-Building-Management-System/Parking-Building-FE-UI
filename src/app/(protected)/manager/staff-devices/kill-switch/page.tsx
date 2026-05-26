@@ -1,10 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { KillSwitch } from '@/features/manager/kill-switch';
 
 export default function KillSwitchPage() {
-    return (
-        <MockModulePage
-            {...mockModulePages['/manager/staff-devices/kill-switch']}
-        />
-    );
+    return <KillSwitch />;
 }

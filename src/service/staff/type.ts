@@ -4,6 +4,7 @@ export interface StaffCheckInRequest {
     plateNumber: string;
     cardCode: string;
     entryImageUrl?: string;
+    parkingId?: string;
 }
 
 export interface StaffCheckInResponse {

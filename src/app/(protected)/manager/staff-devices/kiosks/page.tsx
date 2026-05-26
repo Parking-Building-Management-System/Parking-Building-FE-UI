@@ -1,8 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { KioskManagement } from '@/features/manager/kiosk-management';
 
 export default function KiosksGatesPage() {
-    return (
-        <MockModulePage {...mockModulePages['/manager/staff-devices/kiosks']} />
-    );
+    return <KioskManagement />;
 }

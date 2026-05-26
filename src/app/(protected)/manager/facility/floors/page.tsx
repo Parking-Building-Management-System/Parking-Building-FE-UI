@@ -1,6 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { FloorManagement } from '@/features/manager/floor-management';
 
 export default function FacilityFloorsPage() {
-    return <MockModulePage {...mockModulePages['/manager/facility/floors']} />;
+    return <FloorManagement />;
 }

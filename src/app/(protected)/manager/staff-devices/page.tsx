@@ -1,6 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { StaffDevicesOverview } from '@/features/manager/staff-devices-overview';
 
 export default function StaffDevicesPage() {
-    return <MockModulePage {...mockModulePages['/manager/staff-devices']} />;
+    return <StaffDevicesOverview />;
 }

@@ -1,8 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { StaffAccounts } from '@/features/manager/staff-accounts';
 
 export default function StaffAccountsPage() {
-    return (
-        <MockModulePage {...mockModulePages['/manager/staff-devices/staff']} />
-    );
+    return <StaffAccounts />;
 }

@@ -32,6 +32,7 @@ import {
     type StaffCheckInFormValues,
     type StaffCheckInResponse,
 } from '@/service/staff';
+import { useAuthStore } from '@/stores/use-auth-store';
 
 const getStaffCheckInErrorMessage = (error: unknown) => {
     if (error instanceof ApiError) {
@@ -58,6 +59,29 @@ const getStaffCheckInErrorMessage = (error: unknown) => {
             normalizedMessage.includes('không còn chỗ')
         ) {
             return 'Không còn slot trống phù hợp.';
+        }
+
+        if (
+            error.code === 4002 ||
+            normalizedMessage.includes('kiosk_context_required')
+        ) {
+            return 'Thiếu ngữ cảnh kiosk. Đăng nhập lại từ thiết bị kiosk đã được duyệt.';
+        }
+
+        if (
+            normalizedMessage.includes('device_not_trust') ||
+            normalizedMessage.includes('device_not_trusted') ||
+            normalizedMessage.includes('thiết bị chưa được cấp quyền')
+        ) {
+            return 'Thiết bị staff chưa được quản lý duyệt.';
+        }
+
+        if (normalizedMessage.includes('staff_not_assigned_to_kiosk')) {
+            return 'Staff chưa được gán vào kiosk này.';
+        }
+
+        if (normalizedMessage.includes('kiosk_inactive')) {
+            return 'Kiosk đang không hoạt động.';
         }
 
         if (error.status === 401) {
@@ -88,13 +112,25 @@ const formatEntryTime = (entryTime: string) => {
     return parsed.toLocaleString('vi-VN');
 };
 
-const buildCheckInRequest = (values: StaffCheckInFormValues) => ({
-    plateNumber: values.plateNumber.trim().toUpperCase(),
-    cardCode: values.cardCode.trim().toUpperCase(),
-    entryImageUrl: values.entryImageUrl?.trim() || undefined,
-});
+const buildCheckInRequest = (
+    values: StaffCheckInFormValues,
+    hasWorkContext: boolean,
+) => {
+    const request = {
+        plateNumber: values.plateNumber.trim().toUpperCase(),
+        cardCode: values.cardCode.trim().toUpperCase(),
+        entryImageUrl: values.entryImageUrl?.trim() || undefined,
+    };
+
+    if (hasWorkContext) {
+        return request;
+    }
+
+    return request;
+};
 
 export function StaffEntryCheckIn() {
+    const workContext = useAuthStore((state) => state.user?.workContext);
     const [checkInResult, setCheckInResult] =
         useState<StaffCheckInResponse | null>(null);
     const form = useForm<StaffCheckInFormValues>({
@@ -157,7 +193,7 @@ export function StaffEntryCheckIn() {
 
     const onSubmit = (values: StaffCheckInFormValues) => {
         setCheckInResult(null);
-        checkInMutation.mutate(buildCheckInRequest(values));
+        checkInMutation.mutate(buildCheckInRequest(values, !!workContext));
     };
 
     return (
@@ -185,6 +221,27 @@ export function StaffEntryCheckIn() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
+                        {workContext ? (
+                            <div className="mb-5 grid gap-3 rounded-lg border p-3 text-sm md:grid-cols-3">
+                                <ContextItem
+                                    label="Kiosk"
+                                    value={workContext.kioskName}
+                                />
+                                <ContextItem
+                                    label="Type"
+                                    value={workContext.kioskType}
+                                />
+                                <ContextItem
+                                    label="Parking"
+                                    value={workContext.parkingName}
+                                />
+                            </div>
+                        ) : (
+                            <div className="text-muted-foreground mb-5 rounded-lg border p-3 text-xs">
+                                Chưa có workContext từ /auth/me. Request sẽ giữ
+                                DEV fallback hiện tại và không gửi tenantId.
+                            </div>
+                        )}
                         <Form {...form}>
                             <form
                                 className="space-y-5"
@@ -354,6 +411,15 @@ export function StaffEntryCheckIn() {
                     </div>
                 </div>
             </div>
+        </div>
+    );
+}
+
+function ContextItem({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="min-w-0">
+            <p className="text-muted-foreground text-xs">{label}</p>
+            <p className="truncate font-medium">{value}</p>
         </div>
     );
 }

@@ -1,6 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { ZoneManagement } from '@/features/manager/zone-management';
 
 export default function FacilityZonesPage() {
-    return <MockModulePage {...mockModulePages['/manager/facility/zones']} />;
+    return <ZoneManagement />;
 }

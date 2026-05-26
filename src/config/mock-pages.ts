@@ -191,6 +191,8 @@ export const mockModulePages = {
         description:
             'Manager overview for staff accounts, kiosks, trusted devices, and emergency controls.',
         bullets: [
+            'Mock page / API pending.',
+            'This module will be implemented after Staff Accounts and Facility Setup.',
             'Summarize staff account readiness.',
             'Review kiosk and device binding status.',
             'Route managers to approval and kill switch workflows.',
@@ -217,6 +219,8 @@ export const mockModulePages = {
         description:
             'Physical kiosk and gate management for tenant parking operations.',
         bullets: [
+            'Mock page / API pending.',
+            'This module will be implemented after Staff Accounts and Facility Setup.',
             'List gate booths and physical kiosk identities.',
             'Bind allowed staff to kiosk positions.',
             'Inspect currently trusted devices per kiosk.',
@@ -228,6 +232,8 @@ export const mockModulePages = {
         description:
             'Approval queue for unknown staff devices requesting kiosk access.',
         bullets: [
+            'Mock page / API pending.',
+            'This module will be implemented after Staff Accounts and Facility Setup.',
             'Review pending device requests from staff login.',
             'Approve temporary access or reject requests.',
             'Keep device approval history for audit.',
@@ -243,6 +249,8 @@ export const mockModulePages = {
         description:
             'Emergency controls for disabling risky staff accounts or device access.',
         bullets: [
+            'Mock page / API pending.',
+            'This module will be implemented after Staff Accounts and Facility Setup.',
             'Deactivate staff accounts immediately.',
             'Revoke trusted devices for a kiosk or staff account.',
             'Force logout operational sessions when needed.',
