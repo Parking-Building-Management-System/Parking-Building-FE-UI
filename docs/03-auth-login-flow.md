@@ -181,7 +181,7 @@ Refresh token không lưu trong Zustand/localStorage. Backend quản lý refresh
 `apiClient` bật:
 
 ```ts
-withCredentials: true
+withCredentials: true;
 ```
 
 Để browser gửi cookie khi gọi backend.

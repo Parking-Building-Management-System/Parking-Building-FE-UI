@@ -49,9 +49,7 @@ Nếu add component shadcn mới, cần giữ đúng alias và style hiện tạ
 Tailwind dùng className trực tiếp:
 
 ```tsx
-<div className="bg-muted text-muted-foreground rounded-xl p-4">
-    ...
-</div>
+<div className="bg-muted text-muted-foreground rounded-xl p-4">...</div>
 ```
 
 Khi cần merge class conditionally, dùng `cn()`:
@@ -59,7 +57,7 @@ Khi cần merge class conditionally, dùng `cn()`:
 ```tsx
 import { cn } from '@/lib/utils';
 
-<div className={cn('rounded-xl border', className)} />
+<div className={cn('rounded-xl border', className)} />;
 ```
 
 `cn()` nằm ở `src/lib/utils.ts`, dùng `clsx` và `tailwind-merge`.

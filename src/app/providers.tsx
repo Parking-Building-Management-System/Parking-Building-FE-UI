@@ -1,5 +1,6 @@
 'use client';
 
+import { AuthBootstrap } from '@/components/auth/auth-bootstrap';
 import { QueryProvider } from '@/providers/query-provider';
 import { ThemeProvider } from '@/providers/theme-provider';
 import { ReactNode } from 'react';
@@ -12,7 +13,10 @@ export function Providers({ children }: { children: ReactNode }) {
             enableSystem
             disableTransitionOnChange
         >
-            <QueryProvider>{children}</QueryProvider>
+            <QueryProvider>
+                <AuthBootstrap />
+                {children}
+            </QueryProvider>
         </ThemeProvider>
     );
 }

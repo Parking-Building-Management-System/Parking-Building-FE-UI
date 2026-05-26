@@ -1,11 +1,5 @@
-import { RoleWelcomeCard } from '@/components/role-welcome-card';
+import { StaffEntryCheckIn } from '@/features/staff/entry-check-in';
 
 export default function StaffPage() {
-    return (
-        <RoleWelcomeCard
-            role="STAFF"
-            title="Staff Dashboard"
-            description="Handle daily parking tasks, support users, verify tickets, and manage on-site operations."
-        />
-    );
+    return <StaffEntryCheckIn />;
 }

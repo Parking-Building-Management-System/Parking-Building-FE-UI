@@ -1,0 +1,359 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
+import { DoorOpen, IdCard, ImageIcon, ParkingCircle } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+
+import { Button } from '@/components/ui/button';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import {
+    Form,
+    FormControl,
+    FormDescription,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { ApiError } from '@/lib/api/axios-config';
+import {
+    checkInParkingSessionApi,
+    staffCheckInFormSchema,
+    type StaffCheckInFormValues,
+    type StaffCheckInResponse,
+} from '@/service/staff';
+
+const getStaffCheckInErrorMessage = (error: unknown) => {
+    if (error instanceof ApiError) {
+        const message = error.message || '';
+        const normalizedMessage = message.toLowerCase();
+
+        if (
+            normalizedMessage.includes('card not found') ||
+            normalizedMessage.includes('không tìm thấy thẻ')
+        ) {
+            return 'Không tìm thấy thẻ. Kiểm tra lại mã thẻ.';
+        }
+
+        if (
+            normalizedMessage.includes('already in use') ||
+            normalizedMessage.includes('đang được sử dụng')
+        ) {
+            return 'Thẻ đang được sử dụng cho lượt gửi xe khác.';
+        }
+
+        if (
+            normalizedMessage.includes('no available slot') ||
+            normalizedMessage.includes('hết chỗ') ||
+            normalizedMessage.includes('không còn chỗ')
+        ) {
+            return 'Không còn slot trống phù hợp.';
+        }
+
+        if (error.status === 401) {
+            return 'Phiên đăng nhập đã hết hạn hoặc chưa đăng nhập.';
+        }
+
+        if (error.status === 403) {
+            return 'Bạn không có quyền tạo lượt vào hoặc thiết bị chưa được cấp quyền.';
+        }
+
+        return message || 'Không thể tạo lượt vào.';
+    }
+
+    if (error instanceof Error) {
+        return error.message || 'Không thể tạo lượt vào.';
+    }
+
+    return 'Không thể tạo lượt vào.';
+};
+
+const formatEntryTime = (entryTime: string) => {
+    const parsed = new Date(entryTime);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return entryTime;
+    }
+
+    return parsed.toLocaleString('vi-VN');
+};
+
+const buildCheckInRequest = (values: StaffCheckInFormValues) => ({
+    plateNumber: values.plateNumber.trim().toUpperCase(),
+    cardCode: values.cardCode.trim().toUpperCase(),
+    entryImageUrl: values.entryImageUrl?.trim() || undefined,
+});
+
+export function StaffEntryCheckIn() {
+    const [checkInResult, setCheckInResult] =
+        useState<StaffCheckInResponse | null>(null);
+    const form = useForm<StaffCheckInFormValues>({
+        resolver: zodResolver(staffCheckInFormSchema),
+        defaultValues: {
+            plateNumber: '',
+            cardCode: '',
+            entryImageUrl: '',
+        },
+    });
+
+    const checkInMutation = useMutation({
+        mutationFn: checkInParkingSessionApi,
+        onSuccess: (result) => {
+            setCheckInResult(result);
+            toast.success('Đã giữ chỗ và mở rào giả lập.');
+            form.reset({
+                plateNumber: '',
+                cardCode: '',
+                entryImageUrl: '',
+            });
+        },
+        onError: (error) => {
+            toast.error(getStaffCheckInErrorMessage(error));
+        },
+    });
+
+    const resultItems = useMemo(() => {
+        if (!checkInResult) {
+            return [];
+        }
+
+        return [
+            {
+                label: 'Biển số',
+                value: checkInResult.plateNumber,
+            },
+            {
+                label: 'Mã thẻ',
+                value: checkInResult.cardCode,
+            },
+            {
+                label: 'Slot được giữ',
+                value: checkInResult.assignedSlotCode,
+            },
+            {
+                label: 'Khu vực',
+                value: checkInResult.zoneName,
+            },
+            {
+                label: 'Giờ vào',
+                value: formatEntryTime(checkInResult.entryTime),
+            },
+            {
+                label: 'Trạng thái',
+                value: checkInResult.status,
+            },
+        ];
+    }, [checkInResult]);
+
+    const onSubmit = (values: StaffCheckInFormValues) => {
+        setCheckInResult(null);
+        checkInMutation.mutate(buildCheckInRequest(values));
+    };
+
+    return (
+        <div className="space-y-6 p-6">
+            <div className="flex flex-col gap-2">
+                <p className="text-muted-foreground text-sm font-medium">
+                    STAFF
+                </p>
+                <h1 className="text-3xl font-semibold tracking-normal">
+                    Entry Check-in
+                </h1>
+                <p className="text-muted-foreground max-w-2xl text-sm">
+                    Tạo lượt gửi xe bằng biển số và mã thẻ, sau đó giữ slot và
+                    mở rào giả lập từ hệ thống staff.
+                </p>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Tạo lượt vào</CardTitle>
+                        <CardDescription>
+                            Endpoint sử dụng: POST
+                            /staff/parking-sessions/check-in
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Form {...form}>
+                            <form
+                                className="space-y-5"
+                                onSubmit={form.handleSubmit(onSubmit)}
+                            >
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <FormField
+                                        control={form.control}
+                                        name="plateNumber"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>
+                                                    Biển số xe
+                                                </FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        placeholder="51A-12345"
+                                                        autoComplete="off"
+                                                        disabled={
+                                                            checkInMutation.isPending
+                                                        }
+                                                        {...field}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <FormField
+                                        control={form.control}
+                                        name="cardCode"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Mã thẻ</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        placeholder="CARD-001"
+                                                        autoComplete="off"
+                                                        disabled={
+                                                            checkInMutation.isPending
+                                                        }
+                                                        {...field}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+
+                                <FormField
+                                    control={form.control}
+                                    name="entryImageUrl"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>
+                                                Ảnh lúc vào (URL, optional)
+                                            </FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    placeholder="https://example.com/entry-image.jpg"
+                                                    autoComplete="off"
+                                                    disabled={
+                                                        checkInMutation.isPending
+                                                    }
+                                                    {...field}
+                                                />
+                                            </FormControl>
+                                            <FormDescription>
+                                                Upload ảnh thật/camera chưa
+                                                triển khai trong MVP này.
+                                            </FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <Button
+                                    type="submit"
+                                    size="lg"
+                                    className="h-12 w-full text-base"
+                                    disabled={checkInMutation.isPending}
+                                >
+                                    <DoorOpen data-icon="inline-start" />
+                                    {checkInMutation.isPending
+                                        ? 'Đang tạo lượt...'
+                                        : 'Tạo lượt & Mở rào'}
+                                </Button>
+                            </form>
+                        </Form>
+                    </CardContent>
+                </Card>
+
+                <div className="space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Kết quả check-in</CardTitle>
+                            <CardDescription>
+                                Thông tin giữ chỗ trả về từ backend.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {checkInResult ? (
+                                <div className="space-y-4">
+                                    <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm font-medium text-green-700 dark:text-green-300">
+                                        Đã giữ chỗ và mở rào giả lập
+                                    </div>
+
+                                    <div className="grid gap-3">
+                                        {resultItems.map((item) => (
+                                            <div
+                                                key={item.label}
+                                                className="flex items-start justify-between gap-4 rounded-lg border p-3"
+                                            >
+                                                <span className="text-muted-foreground text-sm">
+                                                    {item.label}
+                                                </span>
+                                                <span className="text-right text-sm font-medium break-all">
+                                                    {item.value || '-'}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-muted-foreground flex min-h-72 flex-col items-center justify-center gap-3 rounded-lg border border-dashed p-6 text-center text-sm">
+                                    <ParkingCircle className="size-10" />
+                                    <p>
+                                        Chưa có lượt vào. Nhập biển số và mã thẻ
+                                        để tạo phiên gửi xe.
+                                    </p>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                        <Card size="sm">
+                            <CardContent className="flex items-center gap-3">
+                                <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg border">
+                                    <IdCard className="size-4" />
+                                </div>
+                                <div>
+                                    <p className="font-medium">Card binding</p>
+                                    <p className="text-muted-foreground text-xs">
+                                        Backend kiểm tra thẻ tồn tại và chưa
+                                        được sử dụng.
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card size="sm">
+                            <CardContent className="flex items-center gap-3">
+                                <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg border">
+                                    <ImageIcon className="size-4" />
+                                </div>
+                                <div>
+                                    <p className="font-medium">Entry image</p>
+                                    <p className="text-muted-foreground text-xs">
+                                        MVP chỉ gửi URL ảnh nếu staff nhập.
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}

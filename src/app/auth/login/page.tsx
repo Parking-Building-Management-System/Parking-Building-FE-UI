@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 import { ApiError } from '@/lib/api/axios-config';
+import { getDefaultRouteByRoles } from '@/lib/auth/role-routing';
 import {
     getDeviceFingerprint,
     getDeviceLabel,
@@ -31,7 +32,6 @@ import { getMyProfileApi, loginApi } from '@/service/user/api';
 import {
     LoginFormValues,
     LoginRequest,
-    Role,
     loginFormSchema,
 } from '@/service/user/type';
 
@@ -44,26 +44,6 @@ export default function LoginPage() {
         </div>
     );
 }
-
-const getDefaultRouteByRoles = (roles: Role[]) => {
-    if (roles.includes('SYSTEM_ADMIN')) {
-        return '/admin';
-    }
-
-    if (roles.includes('PARKING_MANAGER')) {
-        return '/manager';
-    }
-
-    if (roles.includes('STAFF')) {
-        return '/staff';
-    }
-
-    if (roles.includes('PARKING_USER')) {
-        return '/driver';
-    }
-
-    return '/';
-};
 
 const LOCAL_TRUSTED_DEVICE_FINGERPRINTS: Record<string, string> = {
     'manager@vincom.smartpark.local': 'seed-vincom-manager-device',

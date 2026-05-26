@@ -57,7 +57,7 @@ export const getApiUrl = (): string => {
 `apiClient` bật:
 
 ```ts
-withCredentials: true
+withCredentials: true;
 ```
 
 Điều này cần cho refresh token HttpOnly cookie.
@@ -73,7 +73,7 @@ const token = useAuthStore.getState().jwtToken;
 Nếu có token, gắn:
 
 ```ts
-Authorization: Bearer <token>
+Authorization: Bearer<token>;
 ```
 
 ### Response interceptor
@@ -128,7 +128,7 @@ Ví dụ login page hiện dùng:
 ```ts
 onError: (error: ApiError | Error) => {
     toast.error(error.message || 'Login failed');
-}
+};
 ```
 
 ## Unwrap result
@@ -322,8 +322,8 @@ GET list/detail nên dùng `useQuery` để có cache và refetch.
 Mỗi `useQuery` cần `queryKey` ổn định:
 
 ```tsx
-queryKey: ['tenants']
-queryKey: ['tenant', tenantId]
+queryKey: ['tenants'];
+queryKey: ['tenant', tenantId];
 ```
 
 ### Bịa API response

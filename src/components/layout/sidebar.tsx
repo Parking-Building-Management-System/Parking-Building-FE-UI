@@ -1,27 +1,55 @@
 'use client';
 
-import { createElement } from 'react';
+import { createElement, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { ChevronLeft, ChevronRight, ParkingCircle } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { ChevronLeft, ChevronRight, LogOut, ParkingCircle } from 'lucide-react';
 
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { getNavigationItemsForRoles } from '@/config/navigation';
+import { getDefaultRouteByRoles } from '@/lib/auth/role-routing';
 import { cn } from '@/lib/utils';
-import type { Role } from '@/service/user/type';
+import { logoutApi } from '@/service/user/api';
 import { useAuthStore } from '@/stores/use-auth-store';
 import { useSidebarStore } from '@/stores/use-sidebar-store';
 
-const MOCKED_SYSTEM_ADMIN_ROLES: Role[] = ['SYSTEM_ADMIN'];
-
 export function Sidebar() {
+    const router = useRouter();
     const pathname = usePathname();
     const user = useAuthStore((state) => state.user);
+    const clearAuth = useAuthStore((state) => state.clearAuth);
     const isCollapsed = useSidebarStore((state) => state.isCollapsed);
     const toggle = useSidebarStore((state) => state.toggle);
-    const roles = user?.roles?.length ? user.roles : MOCKED_SYSTEM_ADMIN_ROLES;
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const roles = user?.roles ?? [];
     const groups = getNavigationItemsForRoles(roles);
+    const homeHref = getDefaultRouteByRoles(roles);
+    const roleLabel = roles.join(', ') || 'No role';
+
+    if (groups.length === 0) {
+        return null;
+    }
+
+    const handleLogout = async () => {
+        if (isLoggingOut) {
+            return;
+        }
+
+        setIsLoggingOut(true);
+
+        try {
+            await logoutApi();
+            toast.success('Logged out successfully.');
+        } catch {
+            toast.info('Session cleared locally.');
+        } finally {
+            clearAuth();
+            setIsLoggingOut(false);
+            router.replace('/auth/login');
+        }
+    };
 
     return (
         <aside
@@ -32,9 +60,9 @@ export function Sidebar() {
         >
             <div className="flex h-16 items-center gap-3 border-b px-3">
                 <Link
-                    href="/admin"
+                    href={homeHref}
                     className="flex min-w-0 flex-1 items-center gap-3"
-                    aria-label="SmartPark admin dashboard"
+                    aria-label="SmartPark dashboard"
                 >
                     <span className="bg-primary text-primary-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
                         <ParkingCircle className="size-5" />
@@ -47,7 +75,7 @@ export function Sidebar() {
                                 : 'opacity-100',
                         )}
                     >
-                        SmartPark Admin
+                        SmartPark
                     </span>
                 </Link>
                 <Button
@@ -133,13 +161,34 @@ export function Sidebar() {
                         )}
                     >
                         <p className="truncate text-sm font-medium">
-                            {user?.fullName || 'System Admin'}
+                            {user?.fullName || user?.username || 'User'}
                         </p>
                         <p className="text-muted-foreground truncate text-xs">
-                            SYSTEM_ADMIN
+                            {roleLabel}
                         </p>
                     </div>
                 </div>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    className={cn(
+                        'mt-3 w-full justify-start',
+                        isCollapsed && 'justify-center px-0',
+                    )}
+                    disabled={isLoggingOut}
+                    onClick={handleLogout}
+                    title="Logout"
+                >
+                    <LogOut data-icon="inline-start" />
+                    <span
+                        className={cn(
+                            'truncate',
+                            isCollapsed ? 'sr-only' : 'inline',
+                        )}
+                    >
+                        {isLoggingOut ? 'Logging out...' : 'Logout'}
+                    </span>
+                </Button>
             </div>
         </aside>
     );

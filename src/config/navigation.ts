@@ -6,7 +6,6 @@ import {
     Gauge,
     LayoutDashboard,
     ParkingCircle,
-    ShieldCheck,
     UsersRound,
 } from 'lucide-react';
 
@@ -33,13 +32,13 @@ export const navigationGroups: NavigationGroup[] = [
         title: 'System Admin',
         items: [
             {
-                title: 'Global Dashboard',
+                title: 'Dashboard',
                 href: '/admin',
                 icon: LayoutDashboard,
                 roles: ['SYSTEM_ADMIN'],
             },
             {
-                title: 'Tenant Management',
+                title: 'Tenants',
                 href: '/admin/tenants',
                 icon: Building2,
                 roles: ['SYSTEM_ADMIN'],
@@ -57,19 +56,19 @@ export const navigationGroups: NavigationGroup[] = [
         title: 'Parking Manager',
         items: [
             {
-                title: 'Manager Dashboard',
+                title: 'Dashboard',
                 href: '/manager',
                 icon: Gauge,
                 roles: ['PARKING_MANAGER'],
             },
             {
-                title: 'Parking Operations',
+                title: 'Facility / Parkings',
                 href: '/manager/parkings',
                 icon: CarFront,
                 roles: ['PARKING_MANAGER'],
             },
             {
-                title: 'Slot Management',
+                title: 'Slots',
                 href: '/manager/slots',
                 icon: ParkingCircle,
                 roles: ['PARKING_MANAGER'],
@@ -78,18 +77,12 @@ export const navigationGroups: NavigationGroup[] = [
     },
     {
         role: 'STAFF',
-        title: 'Staff',
+        title: 'Staff Operations',
         items: [
             {
-                title: 'Staff Dashboard',
+                title: 'Entry / Staff Operations',
                 href: '/staff',
                 icon: UsersRound,
-                roles: ['STAFF'],
-            },
-            {
-                title: 'Device Check',
-                href: '/staff/devices',
-                icon: ShieldCheck,
                 roles: ['STAFF'],
             },
         ],

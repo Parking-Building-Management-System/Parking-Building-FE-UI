@@ -101,7 +101,9 @@ const Icon = ROLE_ICONS[role];
 Render bằng:
 
 ```tsx
-{createElement(Icon, { className: 'size-7' })}
+{
+    createElement(Icon, { className: 'size-7' });
+}
 ```
 
 ## API gọi sai domain
@@ -319,13 +321,13 @@ Không dùng `next lint` cho Next.js 16. Script `lint:fix` hiện vẫn là `nex
 `apiClient` trong `src/lib/api/axios-config.ts` đã có:
 
 ```ts
-withCredentials: true
+withCredentials: true;
 ```
 
 `refreshApi()` cũng gọi raw axios với:
 
 ```ts
-withCredentials: true
+withCredentials: true;
 ```
 
 Nếu cookie vẫn không gửi, cần kiểm tra backend CORS/cookie config.

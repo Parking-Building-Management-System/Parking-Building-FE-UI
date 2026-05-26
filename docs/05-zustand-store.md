@@ -62,7 +62,7 @@ Trạng thái app đang kiểm tra session.
 Initial hiện là:
 
 ```ts
-isCheckingAuth: true
+isCheckingAuth: true;
 ```
 
 Nhưng project hiện chưa có `AuthBootstrap`, nên state này chưa được dùng đầy đủ để restore session sau F5.
@@ -87,7 +87,7 @@ setAuth: (user) =>
         user,
         isAuthenticated: !!user,
         isCheckingAuth: false,
-    })
+    });
 ```
 
 ### `setJwtToken(token)`
@@ -135,7 +135,7 @@ clearAuth: () =>
         isAuthenticated: false,
         isCheckingAuth: false,
         jwtToken: null,
-    })
+    });
 ```
 
 `apiClient` gọi `clearAuth()` khi refresh token thất bại.
