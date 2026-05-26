@@ -1,11 +1,21 @@
 import type { ComponentType } from 'react';
 import {
+    Activity,
+    AlertTriangle,
+    BarChart3,
     Building2,
     CarFront,
+    ClipboardList,
+    CreditCard,
     Database,
+    DoorOpen,
     Gauge,
     LayoutDashboard,
-    ParkingCircle,
+    Monitor,
+    Receipt,
+    Settings,
+    ShieldCheck,
+    Siren,
     UsersRound,
 } from 'lucide-react';
 
@@ -18,6 +28,12 @@ export interface NavigationItem {
     href: string;
     icon: ComponentType<{ className?: string }>;
     roles: Role[];
+    children?: NavigationChildItem[];
+}
+
+export interface NavigationChildItem {
+    title: string;
+    href: string;
 }
 
 export interface NavigationGroup {
@@ -38,15 +54,73 @@ export const navigationGroups: NavigationGroup[] = [
                 roles: ['SYSTEM_ADMIN'],
             },
             {
-                title: 'Tenants',
+                title: 'Tenant Management',
                 href: '/admin/tenants',
                 icon: Building2,
                 roles: ['SYSTEM_ADMIN'],
+                children: [
+                    {
+                        title: 'All Tenants',
+                        href: '/admin/tenants',
+                    },
+                    {
+                        title: 'Create Tenant',
+                        href: '/admin/tenants/new',
+                    },
+                ],
             },
             {
                 title: 'Master Data',
                 href: '/admin/master-data',
                 icon: Database,
+                roles: ['SYSTEM_ADMIN'],
+                children: [
+                    {
+                        title: 'Vehicle Types',
+                        href: '/admin/master-data/vehicle-types',
+                    },
+                    {
+                        title: 'Roles & Permissions',
+                        href: '/admin/master-data/roles',
+                    },
+                ],
+            },
+            {
+                title: 'System Health',
+                href: '/admin/system-health',
+                icon: Activity,
+                roles: ['SYSTEM_ADMIN'],
+                children: [
+                    {
+                        title: 'API Health',
+                        href: '/admin/system-health/api',
+                    },
+                    {
+                        title: 'Traffic / Usage',
+                        href: '/admin/system-health/traffic',
+                    },
+                ],
+            },
+            {
+                title: 'Audit & Security',
+                href: '/admin/audit',
+                icon: ShieldCheck,
+                roles: ['SYSTEM_ADMIN'],
+                children: [
+                    {
+                        title: 'Admin Audit Logs',
+                        href: '/admin/audit/logs',
+                    },
+                    {
+                        title: 'Force Logout Sessions',
+                        href: '/admin/audit/sessions',
+                    },
+                ],
+            },
+            {
+                title: 'Settings',
+                href: '/admin/settings',
+                icon: Settings,
                 roles: ['SYSTEM_ADMIN'],
             },
         ],
@@ -62,15 +136,157 @@ export const navigationGroups: NavigationGroup[] = [
                 roles: ['PARKING_MANAGER'],
             },
             {
-                title: 'Facility / Parkings',
-                href: '/manager/parkings',
+                title: 'Facility Setup',
+                href: '/manager/facility',
                 icon: CarFront,
                 roles: ['PARKING_MANAGER'],
+                children: [
+                    {
+                        title: 'Parkings',
+                        href: '/manager/facility/parkings',
+                    },
+                    {
+                        title: 'Floors',
+                        href: '/manager/facility/floors',
+                    },
+                    {
+                        title: 'Zones',
+                        href: '/manager/facility/zones',
+                    },
+                    {
+                        title: 'Slots',
+                        href: '/manager/facility/slots',
+                    },
+                    {
+                        title: 'Slot Import / Export',
+                        href: '/manager/facility/slots/import',
+                    },
+                    {
+                        title: 'RFID Cards',
+                        href: '/manager/facility/rfid-cards',
+                    },
+                ],
             },
             {
-                title: 'Slots',
-                href: '/manager/slots',
-                icon: ParkingCircle,
+                title: 'Staff & Devices',
+                href: '/manager/staff-devices',
+                icon: UsersRound,
+                roles: ['PARKING_MANAGER'],
+                children: [
+                    {
+                        title: 'Staff Accounts',
+                        href: '/manager/staff-devices/staff',
+                    },
+                    {
+                        title: 'Kiosks / Gates',
+                        href: '/manager/staff-devices/kiosks',
+                    },
+                    {
+                        title: 'Device Approvals',
+                        href: '/manager/staff-devices/device-approvals',
+                    },
+                    {
+                        title: 'Kill Switch',
+                        href: '/manager/staff-devices/kill-switch',
+                    },
+                ],
+            },
+            {
+                title: 'Operations',
+                href: '/manager/operations',
+                icon: Monitor,
+                roles: ['PARKING_MANAGER'],
+                children: [
+                    {
+                        title: 'Live Monitor',
+                        href: '/manager/operations/live-monitor',
+                    },
+                    {
+                        title: 'Active Sessions',
+                        href: '/manager/operations/sessions',
+                    },
+                    {
+                        title: 'Entry / Exit Logs',
+                        href: '/manager/operations/logs',
+                    },
+                    {
+                        title: 'Exceptions',
+                        href: '/manager/operations/exceptions',
+                    },
+                ],
+            },
+            {
+                title: 'Pricing & Billing',
+                href: '/manager/pricing',
+                icon: CreditCard,
+                roles: ['PARKING_MANAGER'],
+                children: [
+                    {
+                        title: 'Time Rules',
+                        href: '/manager/pricing/time-rules',
+                    },
+                    {
+                        title: 'Pricing Matrix',
+                        href: '/manager/pricing/matrix',
+                    },
+                    {
+                        title: 'Subscriptions',
+                        href: '/manager/pricing/subscriptions',
+                    },
+                    {
+                        title: 'Invoices',
+                        href: '/manager/pricing/invoices',
+                    },
+                    {
+                        title: 'Debt & Reminders',
+                        href: '/manager/pricing/debts',
+                    },
+                ],
+            },
+            {
+                title: 'Incidents & Violations',
+                href: '/manager/incidents',
+                icon: AlertTriangle,
+                roles: ['PARKING_MANAGER'],
+                children: [
+                    {
+                        title: 'Incident Log',
+                        href: '/manager/incidents/logs',
+                    },
+                    {
+                        title: 'Zone Violations',
+                        href: '/manager/incidents/zone-violations',
+                    },
+                    {
+                        title: 'Red Flag Actions',
+                        href: '/manager/incidents/red-flags',
+                    },
+                ],
+            },
+            {
+                title: 'Analytics',
+                href: '/manager/analytics',
+                icon: BarChart3,
+                roles: ['PARKING_MANAGER'],
+                children: [
+                    {
+                        title: 'Revenue',
+                        href: '/manager/analytics/revenue',
+                    },
+                    {
+                        title: 'Occupancy',
+                        href: '/manager/analytics/occupancy',
+                    },
+                    {
+                        title: 'Traffic Heatmap',
+                        href: '/manager/analytics/traffic-heatmap',
+                    },
+                ],
+            },
+            {
+                title: 'Settings',
+                href: '/manager/settings',
+                icon: Settings,
                 roles: ['PARKING_MANAGER'],
             },
         ],
@@ -80,9 +296,33 @@ export const navigationGroups: NavigationGroup[] = [
         title: 'Staff Operations',
         items: [
             {
-                title: 'Entry / Staff Operations',
+                title: 'Entry Gate',
                 href: '/staff',
-                icon: UsersRound,
+                icon: DoorOpen,
+                roles: ['STAFF'],
+            },
+            {
+                title: 'Exit Cashier',
+                href: '/staff/exit',
+                icon: Receipt,
+                roles: ['STAFF'],
+            },
+            {
+                title: 'Live Monitor',
+                href: '/staff/live-monitor',
+                icon: Monitor,
+                roles: ['STAFF'],
+            },
+            {
+                title: 'Exceptions',
+                href: '/staff/exceptions',
+                icon: Siren,
+                roles: ['STAFF'],
+            },
+            {
+                title: 'Shift Handover',
+                href: '/staff/shift-handover',
+                icon: ClipboardList,
                 roles: ['STAFF'],
             },
         ],

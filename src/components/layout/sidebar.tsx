@@ -7,13 +7,37 @@ import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, LogOut, ParkingCircle } from 'lucide-react';
 
 import { ThemeToggle } from '@/components/theme-toggle';
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import { getNavigationItemsForRoles } from '@/config/navigation';
+import {
+    getNavigationItemsForRoles,
+    type NavigationChildItem,
+    type NavigationItem,
+} from '@/config/navigation';
 import { getDefaultRouteByRoles } from '@/lib/auth/role-routing';
 import { cn } from '@/lib/utils';
 import { logoutApi } from '@/service/user/api';
 import { useAuthStore } from '@/stores/use-auth-store';
 import { useSidebarStore } from '@/stores/use-sidebar-store';
+
+const isRouteActive = (pathname: string, href: string) => {
+    return (
+        pathname === href || (href !== '/' && pathname.startsWith(`${href}/`))
+    );
+};
+
+const itemHasActiveRoute = (pathname: string, item: NavigationItem) => {
+    return (
+        isRouteActive(pathname, item.href) ||
+        item.children?.some((child) => isRouteActive(pathname, child.href)) ===
+            true
+    );
+};
 
 export function Sidebar() {
     const router = useRouter();
@@ -27,6 +51,11 @@ export function Sidebar() {
     const groups = getNavigationItemsForRoles(roles);
     const homeHref = getDefaultRouteByRoles(roles);
     const roleLabel = roles.join(', ') || 'No role';
+    const accordionDefaultValue = groups.flatMap((group) =>
+        group.items
+            .filter((item) => item.children?.length)
+            .map((item) => item.href),
+    );
 
     if (groups.length === 0) {
         return null;
@@ -103,44 +132,29 @@ export function Sidebar() {
                             {group.title}
                         </p>
                         <div className="space-y-1">
-                            {group.items.map((item) => {
-                                const isActive =
-                                    pathname === item.href ||
-                                    (item.href !== '/admin' &&
-                                        pathname.startsWith(`${item.href}/`));
-
-                                return (
-                                    <Button
+                            {isCollapsed ? (
+                                group.items.map((item) => (
+                                    <CollapsedNavItem
                                         key={item.href}
-                                        asChild
-                                        variant={
-                                            isActive ? 'secondary' : 'ghost'
-                                        }
-                                        className={cn(
-                                            'w-full justify-start',
-                                            isCollapsed &&
-                                                'justify-center px-0',
-                                        )}
-                                        title={item.title}
-                                    >
-                                        <Link href={item.href}>
-                                            {createElement(item.icon, {
-                                                className: 'size-4',
-                                            })}
-                                            <span
-                                                className={cn(
-                                                    'truncate transition-opacity duration-200',
-                                                    isCollapsed
-                                                        ? 'sr-only'
-                                                        : 'opacity-100',
-                                                )}
-                                            >
-                                                {item.title}
-                                            </span>
-                                        </Link>
-                                    </Button>
-                                );
-                            })}
+                                        item={item}
+                                        pathname={pathname}
+                                    />
+                                ))
+                            ) : (
+                                <Accordion
+                                    type="multiple"
+                                    defaultValue={accordionDefaultValue}
+                                    className="space-y-1"
+                                >
+                                    {group.items.map((item) => (
+                                        <NavItem
+                                            key={item.href}
+                                            item={item}
+                                            pathname={pathname}
+                                        />
+                                    ))}
+                                </Accordion>
+                            )}
                         </div>
                     </div>
                 ))}
@@ -191,5 +205,114 @@ export function Sidebar() {
                 </Button>
             </div>
         </aside>
+    );
+}
+
+function CollapsedNavItem({
+    item,
+    pathname,
+}: {
+    item: NavigationItem;
+    pathname: string;
+}) {
+    const isActive = itemHasActiveRoute(pathname, item);
+
+    return (
+        <Button
+            asChild
+            variant={isActive ? 'secondary' : 'ghost'}
+            className="w-full justify-center px-0"
+            title={item.title}
+        >
+            <Link href={item.href}>
+                {createElement(item.icon, {
+                    className: 'size-4',
+                })}
+                <span className="sr-only">{item.title}</span>
+            </Link>
+        </Button>
+    );
+}
+
+function NavItem({
+    item,
+    pathname,
+}: {
+    item: NavigationItem;
+    pathname: string;
+}) {
+    const isActive = itemHasActiveRoute(pathname, item);
+
+    if (!item.children?.length) {
+        return (
+            <Button
+                asChild
+                variant={isActive ? 'secondary' : 'ghost'}
+                className="w-full justify-start"
+                title={item.title}
+            >
+                <Link href={item.href}>
+                    {createElement(item.icon, {
+                        className: 'size-4',
+                    })}
+                    <span className="truncate">{item.title}</span>
+                </Link>
+            </Button>
+        );
+    }
+
+    return (
+        <AccordionItem value={item.href} className="border-b-0">
+            <AccordionTrigger
+                className={cn(
+                    'h-8 rounded-lg px-2.5 py-0 text-sm hover:no-underline',
+                    isActive && 'bg-secondary text-secondary-foreground',
+                )}
+            >
+                <span className="flex min-w-0 items-center gap-1.5">
+                    {createElement(item.icon, {
+                        className: 'size-4 shrink-0',
+                    })}
+                    <span className="truncate">{item.title}</span>
+                </span>
+            </AccordionTrigger>
+            <AccordionContent className="space-y-1 pt-1 pb-1 pl-5">
+                <ChildNavLink
+                    child={{ title: 'Overview', href: item.href }}
+                    pathname={pathname}
+                />
+                {item.children.map((child) => (
+                    <ChildNavLink
+                        key={child.href}
+                        child={child}
+                        pathname={pathname}
+                    />
+                ))}
+            </AccordionContent>
+        </AccordionItem>
+    );
+}
+
+function ChildNavLink({
+    child,
+    pathname,
+}: {
+    child: NavigationChildItem;
+    pathname: string;
+}) {
+    const isActive = pathname === child.href;
+
+    return (
+        <Button
+            asChild
+            variant={isActive ? 'secondary' : 'ghost'}
+            size="sm"
+            className="h-7 w-full justify-start px-2 text-xs"
+            title={child.title}
+        >
+            <Link href={child.href}>
+                <span className="truncate">{child.title}</span>
+            </Link>
+        </Button>
     );
 }
