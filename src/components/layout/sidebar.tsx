@@ -5,7 +5,11 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, LogOut, ParkingCircle } from 'lucide-react';
+import { ChevronLeft, 
+         ChevronRight, 
+         LogOut, 
+         ParkingCircle,
+       } from 'lucide-react';
 
 import { ThemeToggle } from '@/components/theme-toggle';
 import {
@@ -15,6 +19,13 @@ import {
     AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
     getNavigationItemsForRoles,
     type NavigationChildItem,
@@ -88,7 +99,7 @@ export function Sidebar() {
         setIsLoggingOut(true);
 
         try {
-            await logoutApi();
+            await logoutApi();  
             toast.success('Logged out successfully.');
         } catch {
             toast.info('Session cleared locally.');
@@ -98,6 +109,8 @@ export function Sidebar() {
             router.replace('/auth/login');
         }
     };
+
+    const firstLetter = user?.fullName?.charAt(0) || user?.username?.charAt(0) || 'U';
 
     return (
         <aside
@@ -184,51 +197,75 @@ export function Sidebar() {
                     </div>
                 ))}
             </nav>
-
-            <div className="shrink-0 border-t p-3">
+            
+<div className="shrink-0 border-t p-3">
+    <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+            <button
+                type="button"
+                className={cn(
+                    'flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-muted/60 transition-colors focus:outline-none',
+                    isCollapsed && 'justify-center px-0'
+                )}
+            >
+                
                 <div
                     className={cn(
-                        'flex items-center gap-3',
+                        'flex flex-1 items-center gap-3 min-w-0',
                         isCollapsed && 'justify-center',
                     )}
                 >
-                    <ThemeToggle />
-                    <div
-                        className={cn(
-                            'min-w-0 transition-opacity duration-200',
-                            isCollapsed ? 'hidden' : 'block',
-                        )}
-                    >
-                        <p className="truncate text-sm font-medium">
-                            {user?.fullName || user?.username || 'User'}
-                        </p>
-                        <p className="text-muted-foreground truncate text-xs">
-                            {roleLabel}
-                        </p>
+                    
+                    <div className="bg-primary text-primary-foreground flex size-9 shrink-0 items-center justify-center rounded-full font-semibold text-sm">
+                        {firstLetter.toUpperCase()}
                     </div>
-                </div>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    className={cn(
-                        'mt-3 w-full justify-start',
-                        isCollapsed && 'justify-center px-0',
+                    
+                    {!isCollapsed && (
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">
+                                {user?.fullName || user?.username || 'User'}
+                            </p>
+                            <p className="text-muted-foreground truncate text-xs">
+                                {roleLabel}
+                            </p>
+                        </div>
                     )}
-                    disabled={isLoggingOut}
-                    onClick={handleLogout}
-                    title="Logout"
-                >
-                    <LogOut data-icon="inline-start" />
-                    <span
-                        className={cn(
-                            'truncate',
-                            isCollapsed ? 'sr-only' : 'inline',
-                        )}
-                    >
-                        {isLoggingOut ? 'Logging out...' : 'Logout'}
-                    </span>
-                </Button>
+                </div>
+            </button>
+        </DropdownMenuTrigger>
+
+        
+        <DropdownMenuContent 
+            side="top" 
+            align={isCollapsed ? "center" : "start"} 
+            className="w-56 p-2 rounded-xl border bg-background shadow-md space-y-2"
+        >
+            <div className="flex items-center justify-between px-2 py-1.5 text-sm text-muted-foreground">
+                <span>Giao diện</span>
+                <ThemeToggle />
             </div>
+
+            <DropdownMenuSeparator />
+
+            <Button
+                type="button"
+                variant="ghost"
+                className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+                disabled={isLoggingOut}
+                onClick={(e) => {
+                    e.preventDefault(); 
+                    handleLogout();
+                }}
+                title="Logout"
+            >
+                <LogOut className="size-4 mr-2" />
+                <span className="truncate">
+                    {isLoggingOut ? 'Logging out...' : 'Logout'}
+                </span>
+            </Button>
+        </DropdownMenuContent>
+    </DropdownMenu>
+</div>
         </aside>
     );
 }
