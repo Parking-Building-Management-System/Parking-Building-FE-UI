@@ -250,7 +250,7 @@ export function Sidebar() {
             <Button
                 type="button"
                 variant="ghost"
-                className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+                className="w-full justify-start"
                 disabled={isLoggingOut}
                 onClick={(e) => {
                     e.preventDefault(); 
