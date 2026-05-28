@@ -223,7 +223,7 @@ function LoginForm({ className, ...props }: React.ComponentProps<'div'>) {
                             alt="SmartPark Parking Building"
                             fill
                             priority
-                            className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+                            className="absolute inset-0 h-full w-full object-cover object-bottom transition-all duration-300 brightness-110 dark:brightness-100 dark:contrast-125"
                         />
                     </div>
                 </CardContent>
