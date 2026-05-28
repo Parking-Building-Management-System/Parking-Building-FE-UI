@@ -8,10 +8,17 @@ export interface StaffCheckInRequest {
 }
 
 export interface StaffCheckInResponse {
+    sessionId?: string;
     plateNumber: string;
     cardCode: string;
+    qrToken?: string | null;
+    pwaAccessPath?: string | null;
+    assignedSlotId?: string;
     assignedSlotCode: string;
+    zoneId?: string;
     zoneName: string;
+    parkingId?: string;
+    parkingName?: string | null;
     entryTime: string;
     status: string;
 }

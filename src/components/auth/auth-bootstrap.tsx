@@ -5,10 +5,10 @@ import { useEffect } from 'react';
 import { getMyProfileApi, refreshApi } from '@/service/user/api';
 import { useAuthStore } from '@/stores/use-auth-store';
 
+let bootstrapPromise: Promise<void> | null = null;
+
 export function AuthBootstrap() {
     useEffect(() => {
-        let isMounted = true;
-
         const bootstrapAuth = async () => {
             const authStore = useAuthStore.getState();
 
@@ -25,26 +25,18 @@ export function AuthBootstrap() {
 
                 const user = await getMyProfileApi();
 
-                if (!isMounted) {
-                    return;
-                }
-
                 authStore.setSession({
                     user,
                     jwtToken: auth.accessToken,
                 });
             } catch {
-                if (isMounted) {
-                    authStore.clearAuth();
-                }
+                useAuthStore.getState().clearAuth();
             }
         };
 
-        bootstrapAuth();
-
-        return () => {
-            isMounted = false;
-        };
+        bootstrapPromise ??= bootstrapAuth().finally(() => {
+            bootstrapPromise = null;
+        });
     }, []);
 
     return null;

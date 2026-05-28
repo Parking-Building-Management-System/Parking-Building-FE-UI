@@ -108,6 +108,68 @@ export interface FloorResponse {
     active: boolean;
 }
 
+export interface FloorMapRequest {
+    mapImageUrl: string;
+}
+
+export interface FloorMapResponse {
+    floorId: string;
+    floorName: string;
+    parkingId: string;
+    parkingName: string;
+    mapImageUrl: string | null;
+    coordinateMode: 'PERCENT';
+    slots: FloorMapSlotResponse[];
+}
+
+export interface FloorMapSlotResponse {
+    slotId: string;
+    slotCode: string;
+    zoneId: string;
+    zoneName: string;
+    status: SlotStatus;
+    xCoordinate: number | null;
+    yCoordinate: number | null;
+    hasCoordinate: boolean;
+}
+
+export interface SlotCoordinateRequest {
+    xCoordinate: number;
+    yCoordinate: number;
+}
+
+export interface SlotCoordinateBulkItem extends SlotCoordinateRequest {
+    slotId: string;
+}
+
+export interface SlotCoordinateBulkRequest {
+    items: SlotCoordinateBulkItem[];
+}
+
+export interface SlotCoordinateBulkResponse {
+    updatedCount: number;
+}
+
+export interface StoragePresignUploadRequest {
+    fileName: string;
+    contentType: string;
+    folder: string;
+}
+
+export interface StoragePresignUploadResponse {
+    objectKey: string;
+    uploadUrl: string;
+    method: string;
+    headers: Record<string, string>;
+    expiresInSeconds: number;
+    publicUrl: string | null;
+}
+
+export interface StoragePresignDownloadResponse {
+    downloadUrl: string;
+    expiresInSeconds: number;
+}
+
 export interface ZoneRequest {
     code: string;
     name: string;

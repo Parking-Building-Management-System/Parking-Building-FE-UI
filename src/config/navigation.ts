@@ -28,6 +28,7 @@ export interface NavigationItem {
     href: string;
     icon: ComponentType<{ className?: string }>;
     roles: Role[];
+    showOverviewChild?: boolean;
     children?: NavigationChildItem[];
 }
 
@@ -58,14 +59,11 @@ export const navigationGroups: NavigationGroup[] = [
                 href: '/admin/tenants',
                 icon: Building2,
                 roles: ['SYSTEM_ADMIN'],
+                showOverviewChild: false,
                 children: [
                     {
                         title: 'All Tenants',
                         href: '/admin/tenants',
-                    },
-                    {
-                        title: 'Create Tenant',
-                        href: '/admin/tenants/new',
                     },
                 ],
             },
@@ -74,6 +72,7 @@ export const navigationGroups: NavigationGroup[] = [
                 href: '/admin/master-data',
                 icon: Database,
                 roles: ['SYSTEM_ADMIN'],
+                showOverviewChild: false,
                 children: [
                     {
                         title: 'Vehicle Types',
@@ -81,7 +80,7 @@ export const navigationGroups: NavigationGroup[] = [
                     },
                     {
                         title: 'Roles & Permissions',
-                        href: '/admin/master-data/roles',
+                        href: '/admin/master-data/roles-permissions',
                     },
                 ],
             },
@@ -90,13 +89,14 @@ export const navigationGroups: NavigationGroup[] = [
                 href: '/admin/system-health',
                 icon: Activity,
                 roles: ['SYSTEM_ADMIN'],
+                showOverviewChild: false,
                 children: [
                     {
                         title: 'API Health',
                         href: '/admin/system-health/api',
                     },
                     {
-                        title: 'Traffic / Usage',
+                        title: 'API Traffic',
                         href: '/admin/system-health/traffic',
                     },
                 ],
@@ -106,9 +106,10 @@ export const navigationGroups: NavigationGroup[] = [
                 href: '/admin/audit',
                 icon: ShieldCheck,
                 roles: ['SYSTEM_ADMIN'],
+                showOverviewChild: false,
                 children: [
                     {
-                        title: 'Admin Audit Logs',
+                        title: 'Audit Logs',
                         href: '/admin/audit/logs',
                     },
                     {
@@ -116,12 +117,6 @@ export const navigationGroups: NavigationGroup[] = [
                         href: '/admin/audit/sessions',
                     },
                 ],
-            },
-            {
-                title: 'Settings',
-                href: '/admin/settings',
-                icon: Settings,
-                roles: ['SYSTEM_ADMIN'],
             },
         ],
     },
@@ -156,6 +151,10 @@ export const navigationGroups: NavigationGroup[] = [
                     {
                         title: 'Slots',
                         href: '/manager/facility/slots',
+                    },
+                    {
+                        title: 'Maps / Floor Plans',
+                        href: '/manager/facility/maps',
                     },
                     {
                         title: 'Slot Import / Export',

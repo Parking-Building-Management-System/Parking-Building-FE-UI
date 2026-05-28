@@ -3,7 +3,15 @@
 import { useMemo, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { DoorOpen, IdCard, ImageIcon, ParkingCircle } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+import {
+    Copy,
+    DoorOpen,
+    ExternalLink,
+    IdCard,
+    ImageIcon,
+    ParkingCircle,
+} from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
@@ -112,6 +120,34 @@ const formatEntryTime = (entryTime: string) => {
     return parsed.toLocaleString('vi-VN');
 };
 
+const buildPwaPath = (result: StaffCheckInResponse) => {
+    if (result.pwaAccessPath) {
+        return result.pwaAccessPath;
+    }
+
+    if (result.qrToken) {
+        return `/pwa/c/${encodeURIComponent(result.qrToken)}`;
+    }
+
+    return '';
+};
+
+const buildPublicUrl = (path: string) => {
+    if (!path) {
+        return '';
+    }
+
+    if (/^https?:\/\//i.test(path)) {
+        return path;
+    }
+
+    if (typeof window === 'undefined') {
+        return path;
+    }
+
+    return new URL(path, window.location.origin).toString();
+};
+
 const buildCheckInRequest = (
     values: StaffCheckInFormValues,
     hasWorkContext: boolean,
@@ -181,6 +217,10 @@ export function StaffEntryCheckIn() {
                 value: checkInResult.zoneName,
             },
             {
+                label: 'Bãi xe',
+                value: checkInResult.parkingName ?? checkInResult.parkingId,
+            },
+            {
                 label: 'Giờ vào',
                 value: formatEntryTime(checkInResult.entryTime),
             },
@@ -190,6 +230,26 @@ export function StaffEntryCheckIn() {
             },
         ];
     }, [checkInResult]);
+
+    const pwaPath = useMemo(
+        () => (checkInResult ? buildPwaPath(checkInResult) : ''),
+        [checkInResult],
+    );
+    const publicPwaUrl = useMemo(() => buildPublicUrl(pwaPath), [pwaPath]);
+
+    const onCopyPwaLink = async () => {
+        if (!publicPwaUrl) {
+            toast.error('Backend chưa trả qrToken hoặc pwaAccessPath.');
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(publicPwaUrl);
+            toast.success('Đã copy link PWA.');
+        } catch {
+            toast.error('Không thể copy link. Hãy copy thủ công từ ô link.');
+        }
+    };
 
     const onSubmit = (values: StaffCheckInFormValues) => {
         setCheckInResult(null);
@@ -365,6 +425,75 @@ export function StaffEntryCheckIn() {
                                                 </span>
                                             </div>
                                         ))}
+                                    </div>
+
+                                    <div className="rounded-lg border bg-muted/30 p-4">
+                                        <div className="flex flex-col gap-4">
+                                            <div>
+                                                <h3 className="text-lg font-semibold">
+                                                    Đưa khách quét mã này
+                                                </h3>
+                                                <p className="text-muted-foreground text-sm">
+                                                    Link mở trang hướng dẫn gửi
+                                                    xe công khai của thẻ vừa
+                                                    check-in.
+                                                </p>
+                                            </div>
+
+                                            {publicPwaUrl ? (
+                                                <>
+                                                    <div className="flex justify-center">
+                                                        <div className="rounded-md border bg-white p-3 shadow-sm">
+                                                            <QRCodeSVG
+                                                                value={
+                                                                    publicPwaUrl
+                                                                }
+                                                                size={176}
+                                                                level="M"
+                                                                marginSize={2}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="rounded-md border bg-background px-3 py-2 text-xs break-all">
+                                                        {publicPwaUrl}
+                                                    </div>
+                                                    <div className="grid gap-2 sm:grid-cols-2">
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={
+                                                                onCopyPwaLink
+                                                            }
+                                                        >
+                                                            <Copy data-icon="inline-start" />
+                                                            Copy Link
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            asChild
+                                                        >
+                                                            <a
+                                                                href={
+                                                                    publicPwaUrl
+                                                                }
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                            >
+                                                                <ExternalLink data-icon="inline-start" />
+                                                                Open PWA Preview
+                                                            </a>
+                                                        </Button>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="text-muted-foreground rounded-md border border-dashed bg-background p-4 text-sm">
+                                                    Backend chưa trả qrToken hoặc
+                                                    pwaAccessPath nên chưa thể
+                                                    tạo link PWA. Không dùng mã
+                                                    thẻ làm public token.
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             ) : (

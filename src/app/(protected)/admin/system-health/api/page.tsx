@@ -1,6 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { ApiHealthPageContent } from '@/features/admin/system-health-pages';
 
 export default function ApiHealthPage() {
-    return <MockModulePage {...mockModulePages['/admin/system-health/api']} />;
+    return <ApiHealthPageContent />;
 }

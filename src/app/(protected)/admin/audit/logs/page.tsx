@@ -1,6 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { AuditLogsPageContent } from '@/features/admin/audit-security-pages';
 
 export default function AdminAuditLogsPage() {
-    return <MockModulePage {...mockModulePages['/admin/audit/logs']} />;
+    return <AuditLogsPageContent />;
 }

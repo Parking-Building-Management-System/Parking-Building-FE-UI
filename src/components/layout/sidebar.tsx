@@ -22,7 +22,6 @@ import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
     DropdownMenuContent,
-    DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -81,7 +80,7 @@ export function Sidebar() {
         queryFn: listManagerDeviceApprovalsApi,
         enabled: roles.includes('PARKING_MANAGER'),
         retry: false,
-        refetchInterval: 60_000,
+        staleTime: 5 * 60 * 1000,
     });
     const pendingDeviceApprovals = getPendingApprovalCount(
         deviceApprovalsQuery.data,
@@ -241,7 +240,7 @@ export function Sidebar() {
             className="w-56 p-2 rounded-xl border bg-background shadow-md space-y-2"
         >
             <div className="flex items-center justify-between px-2 py-1.5 text-sm text-muted-foreground">
-                <span>Giao diện</span>
+                <span>Theme</span>
                 <ThemeToggle />
             </div>
 
@@ -344,12 +343,14 @@ function NavItem({
                 </span>
             </AccordionTrigger>
             <AccordionContent className="space-y-1 pt-1 pb-1 pl-5">
-                <ChildNavLink
-                    child={{ title: 'Overview', href: item.href }}
-                    pathname={pathname}
-                    pendingCount={0}
-                    pendingLoading={false}
-                />
+                {item.showOverviewChild !== false && (
+                    <ChildNavLink
+                        child={{ title: 'Overview', href: item.href }}
+                        pathname={pathname}
+                        pendingCount={0}
+                        pendingLoading={false}
+                    />
+                )}
                 {item.children.map((child) => (
                     <ChildNavLink
                         key={child.href}

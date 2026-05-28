@@ -1,6 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { ForceLogoutSessionsPageContent } from '@/features/admin/audit-security-pages';
 
 export default function ForceLogoutSessionsPage() {
-    return <MockModulePage {...mockModulePages['/admin/audit/sessions']} />;
+    return <ForceLogoutSessionsPageContent />;
 }

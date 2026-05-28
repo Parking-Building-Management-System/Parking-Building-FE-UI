@@ -1,8 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { ApiTrafficPageContent } from '@/features/admin/system-health-pages';
 
 export default function TrafficUsagePage() {
-    return (
-        <MockModulePage {...mockModulePages['/admin/system-health/traffic']} />
-    );
+    return <ApiTrafficPageContent />;
 }

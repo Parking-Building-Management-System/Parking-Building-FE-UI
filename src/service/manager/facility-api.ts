@@ -3,6 +3,8 @@ import type { AxiosResponse } from 'axios';
 import apiClient, { ApiResponse } from '@/lib/api/axios-config';
 import type {
     FloorRequest,
+    FloorMapRequest,
+    FloorMapResponse,
     FloorResponse,
     GlobalVehicleTypeResponse,
     ParkingRequest,
@@ -16,12 +18,18 @@ import type {
     RfidCardStatusRequest,
     SlotBulkStatusRequest,
     SlotBulkStatusResponse,
+    SlotCoordinateBulkRequest,
+    SlotCoordinateBulkResponse,
+    SlotCoordinateRequest,
     SlotExportFile,
     SlotImportResponse,
     SlotRequest,
     SlotPageResponse,
     SlotSearchParams,
     SlotResponse,
+    StoragePresignDownloadResponse,
+    StoragePresignUploadRequest,
+    StoragePresignUploadResponse,
     ZoneRequest,
     ZoneResponse,
 } from '@/service/manager/facility-type';
@@ -65,6 +73,10 @@ export const managerFacilityQueryKeys = {
         ['manager', 'facility', 'parkings', parkingId, 'floors'] as const,
     floor: (floorId: string) =>
         ['manager', 'facility', 'floors', floorId] as const,
+    floorMap: (floorId: string) =>
+        ['manager', 'facility', 'floors', floorId, 'map'] as const,
+    storageDownload: (objectKey: string) =>
+        ['manager', 'facility', 'storage', 'download', objectKey] as const,
     zones: (floorId: string) =>
         ['manager', 'facility', 'floors', floorId, 'zones'] as const,
     zone: (zoneId: string) => ['manager', 'facility', 'zones', zoneId] as const,
@@ -184,6 +196,27 @@ export const deleteFloorApi = async (id: string) => {
     );
 };
 
+export const getFloorMapApi = async (id: string) => {
+    const response = await apiClient.get<ApiResponse<FloorMapResponse>>(
+        `${MANAGER_ENDPOINT}/floors/${id}/map`,
+    );
+
+    return getApiResult(response);
+};
+
+export const updateFloorMapApi = async (
+    id: string,
+    data: FloorMapRequest,
+) => {
+    const response = await apiClient.patch<
+        ApiResponse<FloorMapResponse>,
+        AxiosResponse<ApiResponse<FloorMapResponse>>,
+        FloorMapRequest
+    >(`${MANAGER_ENDPOINT}/floors/${id}/map`, data);
+
+    return getApiResult(response);
+};
+
 export const listZonesApi = async (floorId: string) => {
     const response = await apiClient.get<ApiResponse<ZoneResponse[]>>(
         `${MANAGER_ENDPOINT}/floors/${floorId}/zones`,
@@ -286,6 +319,53 @@ export const bulkUpdateSlotStatusApi = async (data: SlotBulkStatusRequest) => {
         AxiosResponse<ApiResponse<SlotBulkStatusResponse>>,
         SlotBulkStatusRequest
     >(`${MANAGER_ENDPOINT}/slots/bulk-status`, data);
+
+    return getApiResult(response);
+};
+
+export const updateSlotCoordinateApi = async (
+    id: string,
+    data: SlotCoordinateRequest,
+) => {
+    const response = await apiClient.patch<
+        ApiResponse<SlotResponse>,
+        AxiosResponse<ApiResponse<SlotResponse>>,
+        SlotCoordinateRequest
+    >(`${MANAGER_ENDPOINT}/slots/${id}/coordinate`, data);
+
+    return getApiResult(response);
+};
+
+export const bulkUpdateSlotCoordinatesApi = async (
+    data: SlotCoordinateBulkRequest,
+) => {
+    const response = await apiClient.patch<
+        ApiResponse<SlotCoordinateBulkResponse>,
+        AxiosResponse<ApiResponse<SlotCoordinateBulkResponse>>,
+        SlotCoordinateBulkRequest
+    >(`${MANAGER_ENDPOINT}/slots/coordinates`, data);
+
+    return getApiResult(response);
+};
+
+export const presignStorageUploadApi = async (
+    data: StoragePresignUploadRequest,
+) => {
+    const response = await apiClient.post<
+        ApiResponse<StoragePresignUploadResponse>,
+        AxiosResponse<ApiResponse<StoragePresignUploadResponse>>,
+        StoragePresignUploadRequest
+    >(`${MANAGER_ENDPOINT}/storage/presign-upload`, data);
+
+    return getApiResult(response);
+};
+
+export const presignStorageDownloadApi = async (objectKey: string) => {
+    const response = await apiClient.get<
+        ApiResponse<StoragePresignDownloadResponse>
+    >(`${MANAGER_ENDPOINT}/storage/presign-download`, {
+        params: { objectKey },
+    });
 
     return getApiResult(response);
 };
