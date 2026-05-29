@@ -9,6 +9,7 @@ import { ChevronLeft,
          ChevronRight, 
          LogOut, 
          ParkingCircle,
+         User
        } from 'lucide-react';
 
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -24,6 +25,9 @@ import {
     DropdownMenuContent,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger
 } from '@/components/ui/dropdown-menu';
 import {
     getNavigationItemsForRoles,
@@ -246,18 +250,61 @@ export function Sidebar() {
 
             <DropdownMenuSeparator />
 
+          {/* 2. ĐÃ SỬA: Biến nút Profile thành một Submenu chứa thông tin ẩn */}
+            <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="gap-3 py-2 px-2 rounded-lg cursor-pointer text-sm font-normal text-muted-foreground data-[state=open]:text-foreground data-[state=open]:bg-muted/50">
+                    <User className="size-4" />
+                    <span>Profile</span>
+                </DropdownMenuSubTrigger>
+
+                {/* Khối hiển thị thông tin khi tương tác vào Profile */}
+                <DropdownMenuSubContent className="bg-background w-64 p-3 rounded-xl border shadow-lg space-y-2.5 text-sm animate-in fade-in-50 duration-100">
+    <div>
+        <span className="text-muted-foreground block text-[11px] font-medium tracking-wider uppercase">Manager</span>
+        <span className="font-semibold text-foreground block mt-0.5">
+            {user?.fullName || user?.username || 'User'}
+        </span>
+    </div>
+    
+    <div>
+        <span className="text-muted-foreground block text-[11px] font-medium tracking-wider uppercase">Roles</span>
+        <span className="mt-1 block text-xs font-bold text-teal-600 dark:text-teal-400 tracking-wide">
+            {user?.roles?.join(', ') || roleLabel || 'PARKING_MANAGER'}
+        </span>
+    </div>
+
+    {/* ĐÃ THAY THẾ TENANT ID THÀNH TRẠNG THÁI HỆ THỐNG */}
+    <div>
+        <span className="text-muted-foreground block text-[11px] font-medium tracking-wider uppercase">Status</span>
+        <div className="flex items-center gap-2 mt-1.5">
+            {/* Chấm tròn phát sáng hiệu ứng pulse */}
+            <span className="relative flex size-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full size-2 bg-emerald-500"></span>
+            </span>
+            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                Online
+            </span>
+        </div>
+    </div>
+</DropdownMenuSubContent>
+            </DropdownMenuSub>
+
+            <DropdownMenuSeparator />
+            
+            {/* 3. Nút Logout nguyên bản */}
             <Button
                 type="button"
                 variant="ghost"
-                className="w-full justify-start"
+                className="w-full justify-start text-muted-foreground hover:text-foreground"
                 disabled={isLoggingOut}
                 onClick={(e) => {
-                    e.preventDefault(); 
+                    e.preventDefault();
                     handleLogout();
                 }}
                 title="Logout"
             >
-                <LogOut className="size-4 mr-2" />
+                <LogOut className="mr-2 size-4" />
                 <span className="truncate">
                     {isLoggingOut ? 'Logging out...' : 'Logout'}
                 </span>
