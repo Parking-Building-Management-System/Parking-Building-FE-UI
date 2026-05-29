@@ -118,8 +118,8 @@ export function ManagerDashboard() {
                         Parking Manager Dashboard
                     </h1>
                     <p className="text-muted-foreground mt-2 max-w-3xl text-sm">
-                        Operations view for occupancy, revenue, active
-                        sessions, incidents, and device approval pressure.
+                        Operations view for occupancy, revenue, active sessions,
+                        incidents, and device approval pressure.
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -152,31 +152,6 @@ export function ManagerDashboard() {
                     </Button>
                 </div>
             </div>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Current Tenant / Manager</CardTitle>
-                    <p className="text-muted-foreground text-xs">
-                        User profile is real when auth store is populated.
-                        Operational metrics below use mock data / API pending.
-                    </p>
-                </CardHeader>
-                <CardContent className="grid gap-4 md:grid-cols-3">
-                    <ProfileField
-                        label="Manager"
-                        value={user?.fullName || user?.username || 'Unknown'}
-                    />
-                    <ProfileField
-                        label="Tenant ID"
-                        value={user?.tenantId || 'Not loaded'}
-                    />
-                    <ProfileField
-                        label="Roles"
-                        value={user?.roles.join(', ') || 'Not loaded'}
-                    />
-                </CardContent>
-            </Card>
-
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {stats.map((stat) => (
                     <Card key={stat.title}>
@@ -292,7 +267,10 @@ export function ManagerDashboard() {
             <div className="grid gap-4 xl:grid-cols-4">
                 <SnapshotCard title="Active Parkings List">
                     {mockActiveParkings.map((parking) => (
-                        <div key={parking.name} className="rounded-lg border p-3">
+                        <div
+                            key={parking.name}
+                            className="rounded-lg border p-3"
+                        >
                             <div className="flex items-center justify-between gap-3">
                                 <p className="font-medium">{parking.name}</p>
                                 <span className="text-xs">
@@ -308,7 +286,10 @@ export function ManagerDashboard() {
 
                 <SnapshotCard title="Recent Sessions">
                     {mockRecentSessions.map((session) => (
-                        <div key={session.plate} className="rounded-lg border p-3">
+                        <div
+                            key={session.plate}
+                            className="rounded-lg border p-3"
+                        >
                             <p className="font-medium">{session.plate}</p>
                             <p className="text-muted-foreground mt-1 text-xs">
                                 {session.site} - {session.state}
@@ -319,7 +300,10 @@ export function ManagerDashboard() {
 
                 <SnapshotCard title="Recent Red-Flag Actions">
                     {mockRedFlags.map((flag) => (
-                        <div key={flag} className="flex gap-2 rounded-lg border p-3">
+                        <div
+                            key={flag}
+                            className="flex gap-2 rounded-lg border p-3"
+                        >
                             <AlertTriangle className="text-destructive mt-0.5 size-4 shrink-0" />
                             <p className="text-sm">{flag}</p>
                         </div>
@@ -328,7 +312,10 @@ export function ManagerDashboard() {
 
                 <SnapshotCard title="Device Approval Queue">
                     {mockDeviceQueue.map((item) => (
-                        <div key={item.device} className="rounded-lg border p-3">
+                        <div
+                            key={item.device}
+                            className="rounded-lg border p-3"
+                        >
                             <p className="font-medium">{item.device}</p>
                             <p className="text-muted-foreground mt-1 text-xs">
                                 Requested by {item.requester}
