@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+    getFloorMapApi,
     getParkingTopologyApi,
     listParkingsApi,
     listRfidCardsApi,
@@ -29,6 +30,8 @@ import {
     type SlotStatus,
 } from '@/service/manager/facility-type';
 import { FacilityHeader } from './floor-management';
+
+const MAX_OVERVIEW_FLOOR_MAP_REQUESTS = 30;
 
 export function FacilityOverview() {
     const parkingsQuery = useQuery({
@@ -77,6 +80,19 @@ export function FacilityOverview() {
     const topology = topologyQueries
         .map((query) => query.data)
         .filter(Boolean);
+    const floorIds = topology.flatMap(
+        (parking) => parking?.floors.map((floor) => floor.id) ?? [],
+    );
+    const shouldLoadMappedSlotStats =
+        floorIds.length > 0 && floorIds.length <= MAX_OVERVIEW_FLOOR_MAP_REQUESTS;
+    const floorMapQueries = useQueries({
+        queries: floorIds.map((floorId) => ({
+            queryKey: managerFacilityQueryKeys.floorMap(floorId),
+            queryFn: () => getFloorMapApi(floorId),
+            enabled: shouldLoadMappedSlotStats,
+            retry: false,
+        })),
+    });
     const totalFloors = topology.reduce(
         (total, parking) => total + (parking?.floors.length ?? 0),
         0,
@@ -104,6 +120,17 @@ export function FacilityOverview() {
     );
     const rfidUnavailable =
         totalRfidQuery.isError || rfidStatusQueries.some((query) => query.isError);
+    const mappedSlots = shouldLoadMappedSlotStats
+        ? floorMapQueries.reduce(
+              (total, query) =>
+                  total +
+                  (query.data?.slots.filter((slot) => slot.hasCoordinate).length ??
+                      0),
+              0,
+          )
+        : null;
+    const mapStatsLoading = floorMapQueries.some((query) => query.isLoading);
+    const mapStatsUnavailable = floorMapQueries.some((query) => query.isError);
     const coreError =
         parkingsQuery.isError ||
         totalSlotsQuery.isError ||
@@ -134,6 +161,15 @@ export function FacilityOverview() {
             title: 'Total Slots',
             value: totalSlotsQuery.data?.totalElements ?? 0,
             icon: ParkingCircle,
+        },
+        {
+            title: 'Mapped Slots',
+            value:
+                !shouldLoadMappedSlotStats || mapStatsUnavailable
+                    ? 'Open Maps'
+                    : (mappedSlots ?? 0),
+            icon: Map,
+            loading: mapStatsLoading,
         },
         {
             title: 'Available Slots',
@@ -246,7 +282,8 @@ export function FacilityOverview() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            {isLoading && typeof stat.value === 'number' ? (
+                            {(isLoading || stat.loading) &&
+                            typeof stat.value === 'number' ? (
                                 <Skeleton className="h-9 w-20" />
                             ) : (
                                 <p className="text-3xl font-semibold">
