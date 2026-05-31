@@ -82,11 +82,30 @@ export const managerFacilityQueryKeys = {
     zone: (zoneId: string) => ['manager', 'facility', 'zones', zoneId] as const,
     slots: ['manager', 'facility', 'slots'] as const,
     slotList: (params: SlotSearchParams) =>
-        ['manager', 'facility', 'slots', params] as const,
+        [
+            'manager',
+            'facility',
+            'slots',
+            'list',
+            params.zoneId ?? 'ALL_ZONES',
+            params.status ?? 'ALL_STATUSES',
+            params.slotCode ?? '',
+            params.exact ?? false,
+            params.page ?? 0,
+            params.size ?? 20,
+        ] as const,
     slot: (slotId: string) => ['manager', 'facility', 'slots', slotId] as const,
     rfidCards: ['manager', 'facility', 'rfid-cards'] as const,
     rfidCardList: (params: RfidCardListParams) =>
-        ['manager', 'facility', 'rfid-cards', params] as const,
+        [
+            'manager',
+            'facility',
+            'rfid-cards',
+            'list',
+            params.status ?? 'ALL_STATUSES',
+            params.page ?? 0,
+            params.size ?? 20,
+        ] as const,
     vehicleTypes: ['manager', 'facility', 'vehicle-types'] as const,
 };
 

@@ -39,7 +39,14 @@ const normalizeList = <T>(
 export const managerKioskDeviceQueryKeys = {
     kiosks: ['manager', 'kiosks'] as const,
     kioskList: (params: KioskListParams = {}) =>
-        ['manager', 'kiosks', params] as const,
+        [
+            'manager',
+            'kiosks',
+            'list',
+            params.parkingId ?? 'ALL_PARKINGS',
+            params.status ?? 'ALL_STATUSES',
+            params.type ?? 'ALL_TYPES',
+        ] as const,
     kiosk: (id: string) => ['manager', 'kiosks', id] as const,
     kioskStaff: (id: string) => ['manager', 'kiosks', id, 'staff'] as const,
     deviceApprovals: ['manager', 'device-approvals'] as const,

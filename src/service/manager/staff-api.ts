@@ -24,7 +24,15 @@ const getApiResult = <T>(response: AxiosResponse<ApiResponse<T>>): T => {
 export const managerStaffQueryKeys = {
     staff: ['manager', 'staff'] as const,
     staffList: (params: ManagerStaffListParams) =>
-        ['manager', 'staff', params] as const,
+        [
+            'manager',
+            'staff',
+            'list',
+            params.search ?? '',
+            params.status ?? 'ALL_STATUSES',
+            params.page ?? 0,
+            params.size ?? 20,
+        ] as const,
     staffDetail: (id: string) => ['manager', 'staff', id] as const,
 };
 
