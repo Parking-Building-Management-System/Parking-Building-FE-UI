@@ -31,7 +31,6 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuthStore } from '@/stores/use-auth-store';
 
 const mockOccupancyTrend = [
     { hour: '06:00', occupied: 142 },
@@ -94,8 +93,6 @@ const heatmapTone: Record<string, string> = {
 };
 
 export function ManagerDashboard() {
-    const user = useAuthStore((state) => state.user);
-
     const stats = [
         { title: 'Total Parkings', value: '8', icon: ParkingCircle },
         { title: 'Total Slots', value: '1,240', icon: CarFront },
@@ -324,15 +321,6 @@ export function ManagerDashboard() {
                     ))}
                 </SnapshotCard>
             </div>
-        </div>
-    );
-}
-
-function ProfileField({ label, value }: { label: string; value: string }) {
-    return (
-        <div className="rounded-lg border p-3">
-            <p className="text-muted-foreground text-xs">{label}</p>
-            <p className="mt-1 truncate font-medium">{value}</p>
         </div>
     );
 }
