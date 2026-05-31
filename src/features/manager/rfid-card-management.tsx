@@ -72,11 +72,23 @@ export function RfidCardManagement() {
     });
 
     const generateMutation = useMutation({
-        mutationFn: () =>
-            generateRfidCardsApi({
-                count: count.trim() ? Number(count) : undefined,
+        mutationFn: () => {
+            const parsedCount = count.trim() ? Number(count) : undefined;
+
+            if (
+                typeof parsedCount === 'number' &&
+                (!Number.isInteger(parsedCount) ||
+                    parsedCount < 1 ||
+                    parsedCount > 10000)
+            ) {
+                throw new Error('Count must be an integer from 1 to 10,000.');
+            }
+
+            return generateRfidCardsApi({
+                count: parsedCount,
                 prefix: prefix.trim() || undefined,
-            }),
+            });
+        },
         onSuccess: () => {
             toast.success('RFID card pool generated.');
             queryClient.invalidateQueries({
