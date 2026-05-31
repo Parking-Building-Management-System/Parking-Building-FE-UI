@@ -23,6 +23,71 @@ export interface StaffCheckInResponse {
     status: string;
 }
 
+export type StaffExitDecision =
+    | 'ALLOW_EXIT'
+    | 'COLLECT_CASH'
+    | 'GRACE_EXPIRED_SURCHARGE'
+    | 'BLOCKED';
+
+export type StaffExitPaymentMode = 'ONLINE' | 'CASH' | 'SURCHARGE_CASH';
+
+export interface StaffExitPreviewRequest {
+    cardCode: string;
+}
+
+export interface StaffCompleteExitRequest {
+    sessionId: string;
+    cardCode: string;
+    paymentMode: StaffExitPaymentMode;
+    collectedAmount: number;
+    note?: string;
+}
+
+export interface StaffExitPreviewResponse {
+    decision: StaffExitDecision | string;
+    sessionId?: string | null;
+    plateNumber?: string | null;
+    licensePlate?: string | null;
+    cardCode?: string | null;
+    slotCode?: string | null;
+    floorName?: string | null;
+    zoneName?: string | null;
+    parkingName?: string | null;
+    checkInAt?: string | null;
+    entryTime?: string | null;
+    durationMinutes?: number | null;
+    amountDue?: number | null;
+    surchargeAmount?: number | null;
+    paidAmount?: number | null;
+    totalAmount?: number | null;
+    amount?: number | null;
+    currency?: string | null;
+    paymentStatus?: string | null;
+    paidAt?: string | null;
+    exitDeadline?: string | null;
+    message?: string | null;
+    errorCode?: string | null;
+    pricingRuleName?: string | null;
+}
+
+export interface StaffCompleteExitResponse {
+    sessionId?: string | null;
+    plateNumber?: string | null;
+    licensePlate?: string | null;
+    cardCode?: string | null;
+    slotCode?: string | null;
+    totalAmount?: number | null;
+    collectedAmount?: number | null;
+    currency?: string | null;
+    paymentMode?: StaffExitPaymentMode | string | null;
+    checkOutAt?: string | null;
+    exitTime?: string | null;
+    status?: string | null;
+    slotStatus?: string | null;
+    cardStatus?: string | null;
+    message?: string | null;
+}
+
 export const staffCheckInFormSchema = z.object({
     plateNumber: z
         .string()
