@@ -83,7 +83,7 @@ const formatDateTime = (value?: string | null) => {
         return value;
     }
 
-    return parsed.toLocaleString('vi-VN');
+    return parsed.toLocaleString('en-US');
 };
 
 const formatMoney = (value?: number | null, currency = 'VND') => {
@@ -138,21 +138,21 @@ const getPwaErrorMessage = (error: unknown) => {
             normalizedMessage.includes('card_qr_not_found') ||
             normalizedMessage.includes('card_not_found')
         ) {
-            return 'Mã thẻ không hợp lệ.';
+            return 'This parking card QR is not valid.';
         }
 
         if (normalizedMessage.includes('card_not_active')) {
-            return 'Thẻ này đang bị khóa hoặc không hoạt động.';
+            return 'This parking card is inactive.';
         }
 
         if (normalizedMessage.includes('no_active_session_for_card')) {
-            return 'Thẻ này hiện không có lượt gửi xe đang hoạt động.';
+            return 'This card has no active parking session.';
         }
 
-        return 'Không thể tải thông tin gửi xe.';
+        return 'Could not load parking session information.';
     }
 
-    return 'Không thể tải thông tin gửi xe.';
+    return 'Could not load parking session information.';
 };
 
 const getPaymentErrorMessage = (error: unknown) => {
@@ -213,7 +213,7 @@ export function CardActiveSessionGuide({
                         <div>
                             <p className="text-lg font-semibold">SmartPark</p>
                             <p className="text-muted-foreground text-xs">
-                                Hướng dẫn gửi xe
+                                Parking guide
                             </p>
                         </div>
                     </div>
@@ -223,21 +223,21 @@ export function CardActiveSessionGuide({
                 {activeSessionQuery.isLoading ? (
                     <StatePanel
                         icon={<Loader2 className="size-8 animate-spin" />}
-                        title="Đang tải thông tin gửi xe"
-                        description="Vui lòng chờ trong giây lát."
+                        title="Loading parking session"
+                        description="Please wait a moment."
                     />
                 ) : activeSessionQuery.isError ? (
                     <StatePanel
                         icon={<AlertCircle className="size-8" />}
                         title={getPwaErrorMessage(activeSessionQuery.error)}
-                        description="Kiểm tra lại mã QR hoặc liên hệ nhân viên bãi xe."
+                        description="Check the QR code or contact parking staff."
                         action={
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={() => activeSessionQuery.refetch()}
                             >
-                                Tải lại
+                                Reload
                             </Button>
                         }
                     />
@@ -249,8 +249,8 @@ export function CardActiveSessionGuide({
                 ) : (
                     <StatePanel
                         icon={<AlertCircle className="size-8" />}
-                        title="Không thể tải thông tin gửi xe."
-                        description="Mã QR chưa có dữ liệu phiên gửi xe."
+                        title="Could not load parking session."
+                        description="This QR code does not have active parking session data."
                     />
                 )}
             </div>
@@ -270,16 +270,16 @@ function ActiveSessionContent({
         session.checkInTime ?? session.entryTime ?? session.checkInAt,
     );
     const detailItems = [
-        { label: 'Biển số', value: plateNumber },
-        { label: 'Mã thẻ', value: session.cardCode },
-        { label: 'Bãi xe', value: session.parkingName },
-        { label: 'Tầng', value: session.floorName },
-        { label: 'Khu vực', value: session.zoneName },
+        { label: 'Plate', value: plateNumber },
+        { label: 'Card', value: session.cardCode },
+        { label: 'Parking', value: session.parkingName },
+        { label: 'Floor', value: session.floorName },
+        { label: 'Zone', value: session.zoneName },
         { label: 'Slot', value: session.slotCode },
     ];
 
     if (checkInTime) {
-        detailItems.push({ label: 'Giờ vào', value: checkInTime });
+        detailItems.push({ label: 'Check-in time', value: checkInTime });
     }
 
     return (
@@ -291,7 +291,7 @@ function ActiveSessionContent({
                     </div>
                     <div className="min-w-0">
                         <p className="text-muted-foreground text-xs">
-                            Phiên gửi xe đang hoạt động
+                            Active parking session
                         </p>
                         <h1 className="mt-1 text-2xl font-semibold tracking-normal break-all">
                             {plateNumber}
@@ -500,23 +500,27 @@ function QuoteSummary({ quote }: { quote: PwaCheckoutQuoteResponse }) {
     const currency = quote.currency || 'VND';
 
     return (
-        <div className="grid gap-2 sm:grid-cols-2">
-            <QuoteMetric
-                label="Check-in time"
-                value={formatDateTime(quote.checkInAt)}
-            />
-            <QuoteMetric
-                label="Duration"
-                value={formatDuration(quote.durationMinutes)}
-            />
-            <QuoteMetric
-                label="Current amount"
-                value={formatMoney(quote.amount, currency)}
-            />
-            <QuoteMetric
-                label="Pricing rule"
-                value={quote.pricingRuleName || '-'}
-            />
+        <div className="space-y-2">
+            <div className="bg-muted/30 rounded-lg border px-4 py-3">
+                <p className="text-muted-foreground text-xs">Amount due</p>
+                <p className="mt-1 text-3xl font-semibold tracking-normal">
+                    {formatMoney(quote.amount, currency)}
+                </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+                <QuoteMetric
+                    label="Check-in time"
+                    value={formatDateTime(quote.checkInAt)}
+                />
+                <QuoteMetric
+                    label="Duration"
+                    value={formatDuration(quote.durationMinutes)}
+                />
+                <QuoteMetric
+                    label="Pricing rule"
+                    value={quote.pricingRuleName || '-'}
+                />
+            </div>
         </div>
     );
 }
@@ -1014,9 +1018,10 @@ function MapSection({ session }: { session: PwaActiveSessionResponse }) {
         <section className="bg-card rounded-lg border p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
-                    <h2 className="text-lg font-semibold">Bản đồ vị trí</h2>
+                    <h2 className="text-lg font-semibold">Parking location</h2>
                     <p className="text-muted-foreground text-xs">
-                        Tọa độ slot dùng phần trăm theo sơ đồ tầng.
+                        Your assigned slot is pinned on the floor map when
+                        coordinates are available.
                     </p>
                 </div>
                 <MapPin className="text-primary size-5" />
@@ -1041,7 +1046,8 @@ function MapSection({ session }: { session: PwaActiveSessionResponse }) {
                     </div>
                     {!canShowPin && (
                         <p className="text-muted-foreground mt-3 text-sm">
-                            Slot đã được gán nhưng chưa có tọa độ trên bản đồ.
+                            This slot is assigned but does not have map
+                            coordinates yet.
                         </p>
                     )}
                 </div>
@@ -1091,11 +1097,11 @@ function getMapState(session: PwaActiveSessionResponse) {
     if (session.mapImageUrl) {
         return {
             src: '',
-            message: 'Bản đồ chưa có URL hiển thị công khai.',
+            message: 'The map image is not available as a public URL yet.',
         };
     }
 
-    return { src: '', message: 'Map chưa được cấu hình.' };
+    return { src: '', message: 'Map has not been configured yet.' };
 }
 
 function StatusBadge({ status }: { status?: string | null }) {
