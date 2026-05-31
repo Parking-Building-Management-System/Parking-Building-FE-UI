@@ -1,8 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { PricingTimeRules } from '@/features/manager/pricing-time-rules';
 
 export default function TimeRulesPage() {
-    return (
-        <MockModulePage {...mockModulePages['/manager/pricing/time-rules']} />
-    );
+    return <PricingTimeRules />;
 }
