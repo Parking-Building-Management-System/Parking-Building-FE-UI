@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 export interface MockModulePageConfig {
     title: string;
@@ -15,16 +16,18 @@ export function MockModulePage({
 }: MockModulePageConfig) {
     return (
         <div className="space-y-6 p-6">
-            <div className="flex flex-col gap-2">
-                <span className="bg-muted inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-medium">
-                    Mock page / API pending
-                </span>
-                <h1 className="text-3xl font-semibold tracking-normal">
-                    {title}
-                </h1>
-                <p className="text-muted-foreground max-w-2xl text-sm">
-                    {description}
-                </p>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex flex-col gap-2">
+                    <span className="bg-muted inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-medium">
+                        API pending
+                    </span>
+                    <h1 className="text-3xl font-semibold tracking-normal">
+                        {title}
+                    </h1>
+                    <p className="text-muted-foreground max-w-2xl text-sm">
+                        {description}
+                    </p>
+                </div>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -35,7 +38,17 @@ export function MockModulePage({
                     <CardContent>
                         <ul className="text-muted-foreground list-disc space-y-2 pl-5 text-sm">
                             {bullets.map((bullet) => (
-                                <li key={bullet}>{bullet}</li>
+                                <li
+                                    key={bullet}
+                                    className={cn(
+                                        bullet
+                                            .toLowerCase()
+                                            .includes('api pending') &&
+                                            'bg-muted/40 text-foreground list-none rounded-md border border-dashed px-3 py-2',
+                                    )}
+                                >
+                                    {bullet}
+                                </li>
                             ))}
                         </ul>
                     </CardContent>
