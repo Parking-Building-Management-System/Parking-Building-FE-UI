@@ -1,6 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { StaffExitCashier } from '@/features/staff/exit-cashier';
 
 export default function StaffExitPage() {
-    return <MockModulePage {...mockModulePages['/staff/exit']} />;
+    return <StaffExitCashier />;
 }
