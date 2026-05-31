@@ -5,6 +5,8 @@ import { getApiUrl } from '@/lib/api/api-url';
 import type {
     PwaActiveSessionResponse,
     PwaCheckoutQuoteResponse,
+    PwaCreatePaymentIntentResponse,
+    PwaPaymentIntentStatusResponse,
 } from '@/service/pwa/type';
 
 const PWA_ENDPOINT = '/pwa';
@@ -36,16 +38,21 @@ const getApiResult = <T>(response: AxiosResponse<ApiResponse<T>>): T => {
 };
 
 export const pwaQueryKeys = {
-    activeSession: (qrToken: string) => ['pwa-active-session', qrToken] as const,
+    activeSession: (qrToken: string) =>
+        ['pwa-active-session', qrToken] as const,
     checkoutQuote: (qrToken: string) =>
         ['pwa-checkout-quote', qrToken] as const,
+    paymentIntent: (orderCode: number | string) =>
+        ['pwa-payment-intent', orderCode] as const,
 };
 
 export const getPwaCardActiveSessionApi = async (qrToken: string) => {
     try {
         const response = await publicApiClient.get<
             ApiResponse<PwaActiveSessionResponse>
-        >(`${PWA_ENDPOINT}/cards/${encodeURIComponent(qrToken)}/active-session`);
+        >(
+            `${PWA_ENDPOINT}/cards/${encodeURIComponent(qrToken)}/active-session`,
+        );
 
         return getApiResult(response);
     } catch (error) {
@@ -70,7 +77,9 @@ export const getPwaCheckoutQuoteApi = async (qrToken: string) => {
     try {
         const response = await publicApiClient.get<
             ApiResponse<PwaCheckoutQuoteResponse>
-        >(`${PWA_ENDPOINT}/cards/${encodeURIComponent(qrToken)}/checkout-quote`);
+        >(
+            `${PWA_ENDPOINT}/cards/${encodeURIComponent(qrToken)}/checkout-quote`,
+        );
 
         return getApiResult(response);
     } catch (error) {
@@ -79,6 +88,59 @@ export const getPwaCheckoutQuoteApi = async (qrToken: string) => {
                 error.response?.data?.message ||
                     error.message ||
                     'Cannot load checkout quote',
+                {
+                    status: error.response?.status,
+                    code: error.response?.data?.code,
+                    details: error.response?.data?.errors,
+                },
+            );
+        }
+
+        throw error;
+    }
+};
+
+export const createPwaPaymentIntentApi = async (qrToken: string) => {
+    try {
+        const response = await publicApiClient.post<
+            ApiResponse<PwaCreatePaymentIntentResponse>
+        >(
+            `${PWA_ENDPOINT}/cards/${encodeURIComponent(qrToken)}/payment-intents`,
+            {},
+        );
+
+        return getApiResult(response);
+    } catch (error) {
+        if (axios.isAxiosError<ApiResponse>(error)) {
+            throw new ApiError(
+                error.response?.data?.message ||
+                    error.message ||
+                    'Cannot create payment intent',
+                {
+                    status: error.response?.status,
+                    code: error.response?.data?.code,
+                    details: error.response?.data?.errors,
+                },
+            );
+        }
+
+        throw error;
+    }
+};
+
+export const getPwaPaymentIntentApi = async (orderCode: number | string) => {
+    try {
+        const response = await publicApiClient.get<
+            ApiResponse<PwaPaymentIntentStatusResponse>
+        >(`${PWA_ENDPOINT}/payment-intents/${encodeURIComponent(orderCode)}`);
+
+        return getApiResult(response);
+    } catch (error) {
+        if (axios.isAxiosError<ApiResponse>(error)) {
+            throw new ApiError(
+                error.response?.data?.message ||
+                    error.message ||
+                    'Cannot load payment status',
                 {
                     status: error.response?.status,
                     code: error.response?.data?.code,
