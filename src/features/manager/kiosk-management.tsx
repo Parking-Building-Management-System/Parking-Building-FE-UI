@@ -72,6 +72,8 @@ import {
 import { listManagerStaffApi, managerStaffQueryKeys } from '@/service/manager/staff-api';
 
 const ALL_PARKINGS = 'ALL_PARKINGS';
+const ALL_TYPES = 'ALL_TYPES';
+const ALL_STATUSES = 'ALL_STATUSES';
 
 interface KioskDialogState {
     open: boolean;
@@ -81,6 +83,12 @@ interface KioskDialogState {
 export function KioskManagement() {
     const queryClient = useQueryClient();
     const [parkingFilter, setParkingFilter] = useState(ALL_PARKINGS);
+    const [typeFilter, setTypeFilter] = useState<KioskType | typeof ALL_TYPES>(
+        ALL_TYPES,
+    );
+    const [statusFilter, setStatusFilter] = useState<
+        KioskStatus | typeof ALL_STATUSES
+    >(ALL_STATUSES);
     const [dialog, setDialog] = useState<KioskDialogState>({ open: false });
     const [assignmentKiosk, setAssignmentKiosk] = useState<KioskItem | undefined>();
 
@@ -92,8 +100,10 @@ export function KioskManagement() {
         () => ({
             parkingId:
                 parkingFilter === ALL_PARKINGS ? undefined : parkingFilter,
+            type: typeFilter === ALL_TYPES ? undefined : typeFilter,
+            status: statusFilter === ALL_STATUSES ? undefined : statusFilter,
         }),
-        [parkingFilter],
+        [parkingFilter, statusFilter, typeFilter],
     );
     const kiosksQuery = useQuery({
         queryKey: managerKioskDeviceQueryKeys.kioskList(kioskParams),
@@ -160,7 +170,7 @@ export function KioskManagement() {
                 <CardHeader>
                     <CardTitle>Filters</CardTitle>
                 </CardHeader>
-                <CardContent className="max-w-sm">
+                <CardContent className="grid gap-3 md:grid-cols-3">
                     <Select value={parkingFilter} onValueChange={setParkingFilter}>
                         <SelectTrigger>
                             <SelectValue placeholder="Parking" />
@@ -172,6 +182,46 @@ export function KioskManagement() {
                             {(parkingsQuery.data ?? []).map((parking) => (
                                 <SelectItem key={parking.id} value={parking.id}>
                                     {parking.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Select
+                        value={typeFilter}
+                        onValueChange={(value) =>
+                            setTypeFilter(value as KioskType | typeof ALL_TYPES)
+                        }
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value={ALL_TYPES}>All types</SelectItem>
+                            {kioskTypeValues.map((type) => (
+                                <SelectItem key={type} value={type}>
+                                    {type}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Select
+                        value={statusFilter}
+                        onValueChange={(value) =>
+                            setStatusFilter(
+                                value as KioskStatus | typeof ALL_STATUSES,
+                            )
+                        }
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value={ALL_STATUSES}>
+                                All statuses
+                            </SelectItem>
+                            {kioskStatusValues.map((status) => (
+                                <SelectItem key={status} value={status}>
+                                    {status}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -780,6 +830,10 @@ function invalidateKioskAssignments(
 function formatAssignedStaffCount(kiosk: KioskItem) {
     if (typeof kiosk.assignedStaffCount === 'number') {
         return kiosk.assignedStaffCount.toLocaleString();
+    }
+
+    if (typeof kiosk.staffCount === 'number') {
+        return kiosk.staffCount.toLocaleString();
     }
 
     return '—';
