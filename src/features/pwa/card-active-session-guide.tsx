@@ -1,36 +1,76 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
     AlertCircle,
+    CheckCircle2,
+    Copy,
+    ExternalLink,
     IdCard,
     Loader2,
     MapPin,
     ParkingCircle,
+    RefreshCw,
+    XCircle,
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api/axios-config';
 import { cn } from '@/lib/utils';
 import {
+    createPwaPaymentIntentApi,
     getPwaCardActiveSessionApi,
     getPwaCheckoutQuoteApi,
+    getPwaPaymentIntentApi,
     pwaQueryKeys,
     type PwaActiveSessionResponse,
     type PwaCheckoutQuoteResponse,
+    type PwaCreatePaymentIntentResponse,
 } from '@/service/pwa';
 
 interface CardActiveSessionGuideProps {
     qrToken: string;
 }
 
+interface PaymentDisplayData {
+    orderCode?: number | string | null;
+    status?: string | null;
+    amount?: number | null;
+    currency?: string | null;
+    paidAt?: string | null;
+    exitDeadline?: string | null;
+    plateNumber?: string | null;
+    licensePlate?: string | null;
+    cardCode?: string | null;
+    checkoutUrl?: string | null;
+    qrCode?: string | null;
+}
+
+const TERMINAL_PAYMENT_STATUSES = ['PAID', 'FAILED', 'CANCELLED', 'EXPIRED'];
+
 const isHttpUrl = (value?: string | null) =>
     !!value && /^https?:\/\//i.test(value);
 
 const hasCoordinate = (value?: number | null) =>
     typeof value === 'number' && Number.isFinite(value);
+
+const isTerminalPaymentStatus = (status?: string | null) =>
+    !!status && TERMINAL_PAYMENT_STATUSES.includes(status);
+
+const isPendingPaymentStatus = (status?: string | null) =>
+    !status || status === 'PENDING';
+
+const getOrderCode = (value?: PaymentDisplayData | null) => {
+    if (!value) {
+        return null;
+    }
+
+    return value.orderCode ?? null;
+};
 
 const formatDateTime = (value?: string | null) => {
     if (!value) {
@@ -73,6 +113,23 @@ const formatDuration = (value?: number | null) => {
     return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
 };
 
+const formatCountdown = (milliseconds: number) => {
+    if (milliseconds <= 0) {
+        return 'Expired';
+    }
+
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+        return `${hours}h ${minutes}m ${seconds}s`;
+    }
+
+    return `${minutes}m ${seconds}s`;
+};
+
 const getPwaErrorMessage = (error: unknown) => {
     if (error instanceof ApiError) {
         const normalizedMessage = (error.message || '').toLowerCase();
@@ -98,6 +155,43 @@ const getPwaErrorMessage = (error: unknown) => {
     return 'Không thể tải thông tin gửi xe.';
 };
 
+const getPaymentErrorMessage = (error: unknown) => {
+    if (error instanceof ApiError) {
+        const normalizedMessage = (error.message || '').toLowerCase();
+
+        if (
+            normalizedMessage.includes('payos_not_configured') ||
+            normalizedMessage.includes('payment_provider_disabled')
+        ) {
+            return 'Online payment is not available right now.';
+        }
+
+        if (normalizedMessage.includes('pricing_rule_not_configured')) {
+            return 'No pricing rule is configured for this parking session.';
+        }
+
+        if (normalizedMessage.includes('no_active_session_for_card')) {
+            return 'This card has no active parking session.';
+        }
+
+        if (normalizedMessage.includes('card_qr_not_found')) {
+            return 'This parking card QR is not valid.';
+        }
+
+        if (normalizedMessage.includes('card_not_active')) {
+            return 'This parking card is not active.';
+        }
+
+        if (normalizedMessage.includes('session_already_paid')) {
+            return 'This parking session has already been paid.';
+        }
+
+        return error.message || 'Payment could not be started.';
+    }
+
+    return 'Network error. Please try again.';
+};
+
 export function CardActiveSessionGuide({
     qrToken,
 }: CardActiveSessionGuideProps) {
@@ -109,7 +203,7 @@ export function CardActiveSessionGuide({
     });
 
     return (
-        <main className="min-h-svh bg-background text-foreground">
+        <main className="bg-background text-foreground min-h-svh">
             <div className="mx-auto flex min-h-svh w-full max-w-2xl flex-col px-4 py-5 sm:px-6">
                 <header className="mb-5 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
@@ -190,7 +284,7 @@ function ActiveSessionContent({
 
     return (
         <div className="space-y-4">
-            <section className="rounded-lg border bg-card p-4 shadow-sm">
+            <section className="bg-card rounded-lg border p-4 shadow-sm">
                 <div className="flex items-start gap-3">
                     <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-md border">
                         <IdCard className="size-5" />
@@ -215,7 +309,7 @@ function ActiveSessionContent({
                 {detailItems.map((item) => (
                     <div
                         key={item.label}
-                        className="rounded-lg border bg-card px-3 py-3 shadow-sm"
+                        className="bg-card rounded-lg border px-3 py-3 shadow-sm"
                     >
                         <p className="text-muted-foreground text-xs">
                             {item.label}
@@ -243,12 +337,12 @@ function CheckoutQuotePanel({ qrToken }: { qrToken: string }) {
     });
 
     return (
-        <section className="rounded-lg border bg-card p-4 shadow-sm">
+        <section className="bg-card rounded-lg border p-4 shadow-sm">
             <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
                     <h2 className="text-lg font-semibold">Checkout quote</h2>
                     <p className="text-muted-foreground text-xs">
-                        Online payment is coming next.
+                        Review the amount before online payment.
                     </p>
                 </div>
                 <Button
@@ -271,7 +365,11 @@ function CheckoutQuotePanel({ qrToken }: { qrToken: string }) {
                     {getQuoteErrorMessage(quoteQuery.error)}
                 </div>
             ) : quoteQuery.data ? (
-                <CheckoutQuoteContent quote={quoteQuery.data} />
+                <CheckoutQuoteContent
+                    qrToken={qrToken}
+                    quote={quoteQuery.data}
+                    onQuoteRefresh={() => quoteQuery.refetch()}
+                />
             ) : (
                 <div className="text-muted-foreground rounded-md border border-dashed p-4 text-sm">
                     Checkout quote is not available yet.
@@ -281,10 +379,35 @@ function CheckoutQuotePanel({ qrToken }: { qrToken: string }) {
     );
 }
 
-function CheckoutQuoteContent({ quote }: { quote: PwaCheckoutQuoteResponse }) {
+function CheckoutQuoteContent({
+    onQuoteRefresh,
+    qrToken,
+    quote,
+}: {
+    onQuoteRefresh: () => void;
+    qrToken: string;
+    quote: PwaCheckoutQuoteResponse;
+}) {
+    const [createdIntent, setCreatedIntent] =
+        useState<PwaCreatePaymentIntentResponse | null>(null);
     const currency = quote.currency || 'VND';
     const state = quote.state || 'ACTIVE_UNPAID';
     const breakdown = quote.breakdown ?? quote.pricingBreakdown ?? [];
+    const nextAction = quote.nextAction;
+    const existingIntent = quote.existingPaymentIntent ?? null;
+
+    const createPaymentIntentMutation = useMutation({
+        mutationFn: () => createPwaPaymentIntentApi(qrToken),
+        onSuccess: (paymentIntent) => {
+            setCreatedIntent(paymentIntent);
+            if (paymentIntent.status === 'PAID') {
+                onQuoteRefresh();
+            }
+        },
+        onError: (error) => {
+            toast.error(getPaymentErrorMessage(error));
+        },
+    });
 
     if (state === 'NO_PRICING_RULE') {
         return (
@@ -303,67 +426,513 @@ function CheckoutQuoteContent({ quote }: { quote: PwaCheckoutQuoteResponse }) {
         );
     }
 
+    if (
+        quote.paymentStatus === 'PAID' ||
+        nextAction === 'EXIT_WITHIN_GRACE_PERIOD' ||
+        createdIntent?.status === 'PAID'
+    ) {
+        return (
+            <PaidSuccessPanel
+                payment={createdIntent ?? quote}
+                fallbackQuote={quote}
+            />
+        );
+    }
+
+    if (
+        createdIntent ||
+        (nextAction === 'CONTINUE_PAYMENT' && existingIntent)
+    ) {
+        return (
+            <PaymentPendingPanel
+                fallbackQuote={quote}
+                initialPayment={createdIntent ?? existingIntent ?? {}}
+                isCreating={createPaymentIntentMutation.isPending}
+                onCreateNew={() => createPaymentIntentMutation.mutate()}
+            />
+        );
+    }
+
     return (
         <div className="space-y-4">
-            <div className="grid gap-2 sm:grid-cols-2">
-                <QuoteMetric
-                    label="Check-in time"
-                    value={formatDateTime(quote.checkInAt)}
-                />
-                <QuoteMetric
-                    label="Duration"
-                    value={formatDuration(quote.durationMinutes)}
-                />
-                <QuoteMetric
-                    label="Current amount"
-                    value={formatMoney(quote.amount, currency)}
-                />
-                <QuoteMetric
-                    label="Pricing rule"
-                    value={quote.pricingRuleName || '-'}
-                />
-            </div>
+            <QuoteSummary quote={quote} />
 
             {breakdown.length > 0 && (
-                <div className="space-y-2">
-                    {breakdown.map((item, index) => (
-                        <div
-                            key={`${item.label}-${index}`}
-                            className="flex items-center justify-between gap-4 rounded-md border px-3 py-2 text-sm"
-                        >
-                            <div>
-                                <p className="font-medium">{item.label}</p>
-                                <p className="text-muted-foreground text-xs">
-                                    {formatDuration(item.minutes)}
-                                    {typeof item.quantity === 'number'
-                                        ? ` x ${item.quantity}`
-                                        : ''}
-                                </p>
-                            </div>
-                            <span className="font-semibold">
-                                {formatMoney(item.amount, currency)}
-                            </span>
-                        </div>
-                    ))}
-                </div>
+                <PricingBreakdown breakdown={breakdown} currency={currency} />
             )}
 
             <div className="space-y-2">
-                <Button type="button" className="w-full" disabled>
-                    Pay & Exit
-                </Button>
-                <p className="text-muted-foreground text-center text-xs">
-                    Online payment is coming next.
-                    {quote.quotedAt
-                        ? ` Quote refreshed at ${formatDateTime(quote.quotedAt)}.`
-                        : ''}
-                </p>
+                {quote.paymentAvailable &&
+                nextAction === 'CREATE_PAYMENT_INTENT' ? (
+                    <Button
+                        type="button"
+                        className="h-10 w-full"
+                        disabled={createPaymentIntentMutation.isPending}
+                        onClick={() => createPaymentIntentMutation.mutate()}
+                    >
+                        {createPaymentIntentMutation.isPending ? (
+                            <Loader2
+                                className="animate-spin"
+                                data-icon="inline-start"
+                            />
+                        ) : null}
+                        {createPaymentIntentMutation.isPending
+                            ? 'Starting payment...'
+                            : 'Pay & Exit'}
+                    </Button>
+                ) : (
+                    <Button type="button" className="w-full" disabled>
+                        Pay & Exit
+                    </Button>
+                )}
+
+                <PaymentActionMessage
+                    nextAction={nextAction}
+                    quote={quote}
+                    error={createPaymentIntentMutation.error}
+                />
             </div>
         </div>
     );
 }
 
-function QuoteMetric({ label, value }: { label: string; value?: string }) {
+function QuoteSummary({ quote }: { quote: PwaCheckoutQuoteResponse }) {
+    const currency = quote.currency || 'VND';
+
+    return (
+        <div className="grid gap-2 sm:grid-cols-2">
+            <QuoteMetric
+                label="Check-in time"
+                value={formatDateTime(quote.checkInAt)}
+            />
+            <QuoteMetric
+                label="Duration"
+                value={formatDuration(quote.durationMinutes)}
+            />
+            <QuoteMetric
+                label="Current amount"
+                value={formatMoney(quote.amount, currency)}
+            />
+            <QuoteMetric
+                label="Pricing rule"
+                value={quote.pricingRuleName || '-'}
+            />
+        </div>
+    );
+}
+
+function PricingBreakdown({
+    breakdown,
+    currency,
+}: {
+    breakdown: PwaCheckoutQuoteResponse['pricingBreakdown'];
+    currency: string;
+}) {
+    return (
+        <div className="space-y-2">
+            {(breakdown ?? []).map((item, index) => (
+                <div
+                    key={`${item.label}-${index}`}
+                    className="flex items-center justify-between gap-4 rounded-md border px-3 py-2 text-sm"
+                >
+                    <div>
+                        <p className="font-medium">{item.label}</p>
+                        <p className="text-muted-foreground text-xs">
+                            {formatDuration(item.minutes)}
+                            {typeof item.quantity === 'number'
+                                ? ` x ${item.quantity}`
+                                : ''}
+                        </p>
+                    </div>
+                    <span className="font-semibold">
+                        {formatMoney(item.amount, currency)}
+                    </span>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function PaymentActionMessage({
+    error,
+    nextAction,
+    quote,
+}: {
+    error: unknown;
+    nextAction?: string | null;
+    quote: PwaCheckoutQuoteResponse;
+}) {
+    if (error) {
+        return (
+            <p className="text-destructive text-center text-xs">
+                {getPaymentErrorMessage(error)}
+            </p>
+        );
+    }
+
+    if (nextAction === 'PAYMENT_PROVIDER_DISABLED') {
+        return (
+            <p className="text-muted-foreground text-center text-xs">
+                Online payment is not available right now.
+            </p>
+        );
+    }
+
+    if (!quote.paymentAvailable) {
+        return (
+            <p className="text-muted-foreground text-center text-xs">
+                Online payment is not available right now.
+            </p>
+        );
+    }
+
+    return (
+        <p className="text-muted-foreground text-center text-xs">
+            {quote.quotedAt
+                ? `Quote refreshed at ${formatDateTime(quote.quotedAt)}.`
+                : 'Create a PayOS payment link for this checkout quote.'}
+        </p>
+    );
+}
+
+function PaymentPendingPanel({
+    fallbackQuote,
+    initialPayment,
+    isCreating,
+    onCreateNew,
+}: {
+    fallbackQuote: PwaCheckoutQuoteResponse;
+    initialPayment: PaymentDisplayData;
+    isCreating: boolean;
+    onCreateNew: () => void;
+}) {
+    const orderCode = getOrderCode(initialPayment);
+    const statusQuery = useQuery({
+        queryKey: orderCode
+            ? pwaQueryKeys.paymentIntent(orderCode)
+            : ['pwa-payment-intent', 'missing-order-code'],
+        queryFn: () => getPwaPaymentIntentApi(orderCode ?? ''),
+        enabled: !!orderCode,
+        retry: false,
+        refetchInterval:
+            orderCode && isPendingPaymentStatus(initialPayment.status)
+                ? (query) =>
+                      isPendingPaymentStatus(query.state.data?.status)
+                          ? 4000
+                          : false
+                : false,
+    });
+
+    const payment = statusQuery.data ?? initialPayment;
+    const status = payment.status ?? 'PENDING';
+
+    if (status === 'PAID') {
+        return (
+            <PaidSuccessPanel payment={payment} fallbackQuote={fallbackQuote} />
+        );
+    }
+
+    if (isTerminalPaymentStatus(status)) {
+        return (
+            <PaymentTerminalPanel
+                fallbackQuote={fallbackQuote}
+                isCreating={isCreating}
+                payment={payment}
+                onCreateNew={onCreateNew}
+            />
+        );
+    }
+
+    const checkoutUrl =
+        payment.checkoutUrl ?? fallbackQuote.existingPaymentIntent?.checkoutUrl;
+    const qrCode = payment.qrCode;
+
+    return (
+        <div className="space-y-4">
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-4">
+                <div className="flex items-start justify-between gap-3">
+                    <div>
+                        <p className="text-sm font-semibold">Payment pending</p>
+                        <p className="text-muted-foreground mt-1 text-xs">
+                            Complete payment in your banking app or PayOS
+                            checkout.
+                        </p>
+                    </div>
+                    <PaymentStatusBadge status={status} />
+                </div>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+                <QuoteMetric
+                    label="Amount"
+                    value={formatMoney(
+                        payment.amount ?? fallbackQuote.amount,
+                        payment.currency ?? fallbackQuote.currency ?? 'VND',
+                    )}
+                />
+                <QuoteMetric
+                    label="Order code"
+                    value={String(orderCode ?? '-')}
+                />
+                <QuoteMetric
+                    label="Plate"
+                    value={
+                        payment.plateNumber ??
+                        fallbackQuote.plateNumber ??
+                        fallbackQuote.licensePlate ??
+                        '-'
+                    }
+                />
+                <QuoteMetric
+                    label="Card"
+                    value={payment.cardCode ?? fallbackQuote.cardCode ?? '-'}
+                />
+            </div>
+
+            {qrCode ? (
+                <div className="flex justify-center">
+                    <div className="rounded-md border bg-white p-3 shadow-sm">
+                        <QRCodeSVG
+                            value={qrCode}
+                            size={188}
+                            level="M"
+                            marginSize={2}
+                        />
+                    </div>
+                </div>
+            ) : null}
+
+            {checkoutUrl ? (
+                <div className="bg-background rounded-md border px-3 py-2 text-xs break-all">
+                    {checkoutUrl}
+                </div>
+            ) : null}
+
+            <div className="grid gap-2 sm:grid-cols-3">
+                <Button
+                    type="button"
+                    disabled={!checkoutUrl}
+                    onClick={() => openPaymentLink(checkoutUrl)}
+                >
+                    <ExternalLink data-icon="inline-start" />
+                    Open PayOS
+                </Button>
+                <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!checkoutUrl}
+                    onClick={() => copyPaymentLink(checkoutUrl)}
+                >
+                    <Copy data-icon="inline-start" />
+                    Copy Link
+                </Button>
+                <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!orderCode || statusQuery.isFetching}
+                    onClick={() => statusQuery.refetch()}
+                >
+                    {statusQuery.isFetching ? (
+                        <Loader2
+                            className="animate-spin"
+                            data-icon="inline-start"
+                        />
+                    ) : (
+                        <RefreshCw data-icon="inline-start" />
+                    )}
+                    Refresh
+                </Button>
+            </div>
+
+            {statusQuery.isError ? (
+                <p className="text-destructive text-center text-xs">
+                    {getPaymentErrorMessage(statusQuery.error)}
+                </p>
+            ) : (
+                <p className="text-muted-foreground text-center text-xs">
+                    Payment status refreshes every few seconds while pending.
+                </p>
+            )}
+        </div>
+    );
+}
+
+function PaymentTerminalPanel({
+    fallbackQuote,
+    isCreating,
+    onCreateNew,
+    payment,
+}: {
+    fallbackQuote: PwaCheckoutQuoteResponse;
+    isCreating: boolean;
+    onCreateNew: () => void;
+    payment: PaymentDisplayData;
+}) {
+    const status = payment.status ?? 'FAILED';
+    const statusText =
+        status === 'EXPIRED'
+            ? 'Payment intent expired'
+            : status === 'CANCELLED'
+              ? 'Payment cancelled'
+              : 'Payment failed';
+
+    return (
+        <div className="space-y-4">
+            <div className="border-destructive/30 bg-destructive/10 rounded-md border p-4">
+                <div className="flex items-start gap-3">
+                    <XCircle className="text-destructive mt-0.5 size-5 shrink-0" />
+                    <div>
+                        <p className="font-semibold">{statusText}</p>
+                        <p className="text-muted-foreground mt-1 text-sm">
+                            The payment was not completed. You can try creating
+                            a new PayOS payment link, or ask parking staff for
+                            help.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+                <QuoteMetric
+                    label="Amount"
+                    value={formatMoney(
+                        payment.amount ?? fallbackQuote.amount,
+                        payment.currency ?? fallbackQuote.currency ?? 'VND',
+                    )}
+                />
+                <QuoteMetric
+                    label="Order code"
+                    value={String(getOrderCode(payment) ?? '-')}
+                />
+            </div>
+            <Button
+                type="button"
+                className="w-full"
+                disabled={isCreating}
+                onClick={onCreateNew}
+            >
+                {isCreating ? (
+                    <Loader2
+                        className="animate-spin"
+                        data-icon="inline-start"
+                    />
+                ) : null}
+                {isCreating ? 'Creating new payment...' : 'Create new payment'}
+            </Button>
+        </div>
+    );
+}
+
+function PaidSuccessPanel({
+    fallbackQuote,
+    payment,
+}: {
+    fallbackQuote: PwaCheckoutQuoteResponse;
+    payment: PaymentDisplayData;
+}) {
+    const [now, setNow] = useState(0);
+    const amount = payment.amount ?? fallbackQuote.amount;
+    const currency = payment.currency ?? fallbackQuote.currency ?? 'VND';
+    const paidAt = payment.paidAt ?? fallbackQuote.paidAt;
+    const exitDeadline = payment.exitDeadline ?? fallbackQuote.exitDeadline;
+    const deadlineTimestamp = exitDeadline
+        ? new Date(exitDeadline).getTime()
+        : Number.NaN;
+    const graceExpired =
+        now > 0 &&
+        Number.isFinite(deadlineTimestamp) &&
+        deadlineTimestamp <= now;
+
+    useEffect(() => {
+        const timer = window.setInterval(() => setNow(Date.now()), 1000);
+
+        return () => window.clearInterval(timer);
+    }, []);
+
+    return (
+        <div className="space-y-4">
+            <div
+                className={cn(
+                    'rounded-md border p-4',
+                    graceExpired
+                        ? 'border-amber-500/30 bg-amber-500/10'
+                        : 'border-emerald-500/30 bg-emerald-500/10',
+                )}
+            >
+                <div className="flex items-start gap-3">
+                    <CheckCircle2
+                        className={cn(
+                            'mt-0.5 size-5 shrink-0',
+                            graceExpired
+                                ? 'text-amber-700 dark:text-amber-300'
+                                : 'text-emerald-700 dark:text-emerald-300',
+                        )}
+                    />
+                    <div>
+                        <p className="font-semibold">Payment successful</p>
+                        <p className="text-muted-foreground mt-1 text-sm">
+                            {graceExpired
+                                ? 'Grace period expired. Please go to the exit cashier for surcharge handling.'
+                                : 'Please exit within the grace period. Hand the card to the staff at the exit gate.'}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+                <QuoteMetric
+                    label="Amount"
+                    value={formatMoney(amount, currency)}
+                />
+                <QuoteMetric label="Paid at" value={formatDateTime(paidAt)} />
+                <QuoteMetric
+                    label="Exit deadline"
+                    value={formatDateTime(exitDeadline)}
+                />
+                <QuoteMetric
+                    label="Countdown"
+                    value={<DeadlineCountdown exitDeadline={exitDeadline} />}
+                />
+                <QuoteMetric
+                    label="Plate"
+                    value={
+                        payment.plateNumber ??
+                        fallbackQuote.plateNumber ??
+                        fallbackQuote.licensePlate ??
+                        '-'
+                    }
+                />
+                <QuoteMetric
+                    label="Card"
+                    value={payment.cardCode ?? fallbackQuote.cardCode ?? '-'}
+                />
+            </div>
+        </div>
+    );
+}
+
+function DeadlineCountdown({ exitDeadline }: { exitDeadline?: string | null }) {
+    const [now, setNow] = useState(0);
+
+    useEffect(() => {
+        const timer = window.setInterval(() => setNow(Date.now()), 1000);
+
+        return () => window.clearInterval(timer);
+    }, []);
+
+    if (!exitDeadline) {
+        return <>-</>;
+    }
+
+    const timestamp = new Date(exitDeadline).getTime();
+
+    if (!Number.isFinite(timestamp)) {
+        return <>{exitDeadline}</>;
+    }
+
+    return <>{now > 0 ? formatCountdown(timestamp - now) : '-'}</>;
+}
+
+function QuoteMetric({ label, value }: { label: string; value?: ReactNode }) {
     return (
         <div className="rounded-md border px-3 py-3">
             <p className="text-muted-foreground text-xs">{label}</p>
@@ -372,6 +941,37 @@ function QuoteMetric({ label, value }: { label: string; value?: string }) {
             </p>
         </div>
     );
+}
+
+function PaymentStatusBadge({ status }: { status?: string | null }) {
+    return (
+        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
+            {status || 'PENDING'}
+        </span>
+    );
+}
+
+async function copyPaymentLink(checkoutUrl?: string | null) {
+    if (!checkoutUrl) {
+        toast.error('Payment link is not available.');
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(checkoutUrl);
+        toast.success('Payment link copied.');
+    } catch {
+        toast.error('Could not copy payment link.');
+    }
+}
+
+function openPaymentLink(checkoutUrl?: string | null) {
+    if (!checkoutUrl) {
+        toast.error('Payment link is not available.');
+        return;
+    }
+
+    window.open(checkoutUrl, '_blank', 'noopener,noreferrer');
 }
 
 function getQuoteErrorMessage(error: unknown) {
@@ -389,6 +989,14 @@ function getQuoteErrorMessage(error: unknown) {
             return 'This card has no active parking session.';
         }
 
+        if (normalizedMessage.includes('card_qr_not_found')) {
+            return 'This parking card QR is not valid.';
+        }
+
+        if (normalizedMessage.includes('card_not_active')) {
+            return 'This parking card is not active.';
+        }
+
         return 'Checkout quote API could not be loaded.';
     }
 
@@ -403,7 +1011,7 @@ function MapSection({ session }: { session: PwaActiveSessionResponse }) {
         hasCoordinate(session.yCoordinate);
 
     return (
-        <section className="rounded-lg border bg-card p-4 shadow-sm">
+        <section className="bg-card rounded-lg border p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                     <h2 className="text-lg font-semibold">Bản đồ vị trí</h2>
@@ -415,8 +1023,8 @@ function MapSection({ session }: { session: PwaActiveSessionResponse }) {
             </div>
 
             {mapState.src ? (
-                <div className="overflow-auto rounded-md border bg-muted/30 p-2">
-                    <div className="relative inline-block overflow-hidden rounded-md bg-background">
+                <div className="bg-muted/30 overflow-auto rounded-md border p-2">
+                    <div className="bg-background relative inline-block overflow-hidden rounded-md">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                             src={mapState.src}
@@ -438,7 +1046,7 @@ function MapSection({ session }: { session: PwaActiveSessionResponse }) {
                     )}
                 </div>
             ) : (
-                <div className="text-muted-foreground rounded-md border border-dashed bg-background p-6 text-center text-sm">
+                <div className="text-muted-foreground bg-background rounded-md border border-dashed p-6 text-center text-sm">
                     {mapState.message}
                 </div>
             )}
@@ -463,7 +1071,7 @@ function SlotPin({
             className="absolute z-10 -translate-x-1/2 -translate-y-full"
             style={{ left: `${x}%`, top: `${y}%` }}
         >
-            <div className="bg-primary text-primary-foreground flex items-center gap-1 rounded-full border border-background px-2 py-1 text-xs font-semibold shadow-sm">
+            <div className="bg-primary text-primary-foreground border-background flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-semibold shadow-sm">
                 <MapPin className="size-3" />
                 <span>{slotCode || 'Slot'}</span>
             </div>
@@ -519,7 +1127,7 @@ function StatePanel({
     title: string;
 }) {
     return (
-        <div className="flex min-h-80 flex-col items-center justify-center rounded-lg border bg-card p-6 text-center shadow-sm">
+        <div className="bg-card flex min-h-80 flex-col items-center justify-center rounded-lg border p-6 text-center shadow-sm">
             <div className="bg-muted mb-4 rounded-full p-4">{icon}</div>
             <h1 className="text-xl font-semibold tracking-normal">{title}</h1>
             <p className="text-muted-foreground mt-2 max-w-sm text-sm">
