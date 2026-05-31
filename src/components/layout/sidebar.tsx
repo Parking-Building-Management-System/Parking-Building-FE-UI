@@ -5,12 +5,13 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronLeft, 
-         ChevronRight, 
-         LogOut, 
-         ParkingCircle,
-         User
-       } from 'lucide-react';
+import {
+    ChevronLeft,
+    ChevronRight,
+    LogOut,
+    ParkingCircle,
+    User,
+} from 'lucide-react';
 
 import { ThemeToggle } from '@/components/theme-toggle';
 import {
@@ -24,10 +25,10 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuSeparator,
-    DropdownMenuTrigger,
     DropdownMenuSub,
     DropdownMenuSubContent,
-    DropdownMenuSubTrigger
+    DropdownMenuSubTrigger,
+    DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
     getNavigationItemsForRoles,
@@ -102,7 +103,7 @@ export function Sidebar() {
         setIsLoggingOut(true);
 
         try {
-            await logoutApi();  
+            await logoutApi();
             toast.success('Logged out successfully.');
         } catch {
             toast.info('Session cleared locally.');
@@ -113,7 +114,8 @@ export function Sidebar() {
         }
     };
 
-    const firstLetter = user?.fullName?.charAt(0) || user?.username?.charAt(0) || 'U';
+    const firstLetter =
+        user?.fullName?.charAt(0) || user?.username?.charAt(0) || 'U';
 
     return (
         <aside
@@ -200,113 +202,119 @@ export function Sidebar() {
                     </div>
                 ))}
             </nav>
-            
-<div className="shrink-0 border-t p-3">
-    <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-            <button
-                type="button"
-                className={cn(
-                    'flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-muted/60 transition-colors focus:outline-none',
-                    isCollapsed && 'justify-center px-0'
-                )}
-            >
-                
-                <div
-                    className={cn(
-                        'flex flex-1 items-center gap-3 min-w-0',
-                        isCollapsed && 'justify-center',
-                    )}
-                >
-                    
-                    <div className="bg-primary text-primary-foreground flex size-9 shrink-0 items-center justify-center rounded-full font-semibold text-sm">
-                        {firstLetter.toUpperCase()}
-                    </div>
-                    
-                    {!isCollapsed && (
-                        <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">
-                                {user?.fullName || user?.username || 'User'}
-                            </p>
-                            <p className="text-muted-foreground truncate text-xs">
-                                {roleLabel}
-                            </p>
+            <div className="shrink-0 border-t p-3">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <button
+                            type="button"
+                            className={cn(
+                                'hover:bg-muted/60 flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors focus:outline-none',
+                                isCollapsed && 'justify-center px-0',
+                            )}
+                        >
+                            <div
+                                className={cn(
+                                    'flex min-w-0 flex-1 items-center gap-3',
+                                    isCollapsed && 'justify-center',
+                                )}
+                            >
+                                <div className="bg-primary text-primary-foreground flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
+                                    {firstLetter.toUpperCase()}
+                                </div>
+
+                                {!isCollapsed && (
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-medium">
+                                            {user?.fullName ||
+                                                user?.username ||
+                                                'User'}
+                                        </p>
+                                        <p className="text-muted-foreground truncate text-xs">
+                                            {roleLabel}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </button>
+                    </DropdownMenuTrigger>
+
+                    <DropdownMenuContent
+                        side="top"
+                        align={isCollapsed ? 'center' : 'start'}
+                        className="bg-background w-56 space-y-2 rounded-xl border p-2 shadow-md"
+                    >
+                        <div className="text-muted-foreground flex items-center justify-between px-2 py-1.5 text-sm">
+                            <span>Theme</span>
+                            <ThemeToggle />
                         </div>
-                    )}
-                </div>
-            </button>
-        </DropdownMenuTrigger>
 
-        
-        <DropdownMenuContent 
-            side="top" 
-            align={isCollapsed ? "center" : "start"} 
-            className="w-56 p-2 rounded-xl border bg-background shadow-md space-y-2"
-        >
-            <div className="flex items-center justify-between px-2 py-1.5 text-sm text-muted-foreground">
-                <span>Theme</span>
-                <ThemeToggle />
+                        <DropdownMenuSeparator />
+
+                        <DropdownMenuSub>
+                            <DropdownMenuSubTrigger className="text-muted-foreground data-[state=open]:bg-muted/50 data-[state=open]:text-foreground cursor-pointer gap-3 rounded-lg px-2 py-2 text-sm font-normal">
+                                <User className="size-4" />
+                                <span>Profile</span>
+                            </DropdownMenuSubTrigger>
+
+                            <DropdownMenuSubContent className="bg-background animate-in fade-in-50 w-64 space-y-2.5 rounded-xl border p-3 text-sm shadow-lg duration-100">
+                                <div>
+                                    <span className="text-muted-foreground block text-[11px] font-medium tracking-wider uppercase">
+                                        User
+                                    </span>
+                                    <span className="text-foreground mt-0.5 block font-semibold">
+                                        {user?.fullName ||
+                                            user?.username ||
+                                            'User'}
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <span className="text-muted-foreground block text-[11px] font-medium tracking-wider uppercase">
+                                        Roles
+                                    </span>
+                                    <span className="mt-1 block text-xs font-bold tracking-wide text-teal-600 dark:text-teal-400">
+                                        {user?.roles?.join(', ') || roleLabel}
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <span className="text-muted-foreground block text-[11px] font-medium tracking-wider uppercase">
+                                        Status
+                                    </span>
+                                    <div className="mt-1.5 flex items-center gap-2">
+                                        <span className="relative flex size-2">
+                                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                                            <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+                                        </span>
+                                        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                                            Online
+                                        </span>
+                                    </div>
+                                </div>
+                            </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+
+                        <DropdownMenuSeparator />
+
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="text-muted-foreground hover:text-foreground w-full justify-start"
+                            disabled={isLoggingOut}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                handleLogout();
+                            }}
+                            title="Logout"
+                        >
+                            <LogOut className="mr-2 size-4" />
+                            <span className="truncate">
+                                {isLoggingOut ? 'Logging out...' : 'Logout'}
+                            </span>
+                        </Button>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
-
-            <DropdownMenuSeparator />
-
-            <DropdownMenuSub>
-                <DropdownMenuSubTrigger className="gap-3 py-2 px-2 rounded-lg cursor-pointer text-sm font-normal text-muted-foreground data-[state=open]:text-foreground data-[state=open]:bg-muted/50">
-                    <User className="size-4" />
-                    <span>Profile</span>
-                </DropdownMenuSubTrigger>
-
-                <DropdownMenuSubContent className="bg-background w-64 p-3 rounded-xl border shadow-lg space-y-2.5 text-sm animate-in fade-in-50 duration-100">
-    <div>
-        <span className="text-muted-foreground block text-[11px] font-medium tracking-wider uppercase">Manager</span>
-        <span className="font-semibold text-foreground block mt-0.5">
-            {user?.fullName || user?.username || 'User'}
-        </span>
-    </div>
-    
-    <div>
-        <span className="text-muted-foreground block text-[11px] font-medium tracking-wider uppercase">Roles</span>
-        <span className="mt-1 block text-xs font-bold text-teal-600 dark:text-teal-400 tracking-wide">
-            {user?.roles?.join(', ') || roleLabel || 'PARKING_MANAGER'}
-        </span>
-    </div>
-
-    <div>
-        <span className="text-muted-foreground block text-[11px] font-medium tracking-wider uppercase">Status</span>
-        <div className="flex items-center gap-2 mt-1.5">
-            <span className="relative flex size-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full size-2 bg-emerald-500"></span>
-            </span>
-            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                Online
-            </span>
-        </div>
-    </div>
-</DropdownMenuSubContent>
-            </DropdownMenuSub>
-
-            <DropdownMenuSeparator />
-            
-            <Button
-                type="button"
-                variant="ghost"
-                className="w-full justify-start text-muted-foreground hover:text-foreground"
-                disabled={isLoggingOut}
-                onClick={(e) => {
-                    e.preventDefault();
-                    handleLogout();
-                }}
-                title="Logout"
-            >
-                <LogOut className="mr-2 size-4" />
-                <span className="truncate">
-                    {isLoggingOut ? 'Logging out...' : 'Logout'}
-                </span>
-            </Button>
-        </DropdownMenuContent>
-    </DropdownMenu>
-</div>
         </aside>
     );
 }
