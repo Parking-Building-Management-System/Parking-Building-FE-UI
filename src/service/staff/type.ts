@@ -44,23 +44,20 @@ export interface StaffCompleteExitRequest {
 }
 
 export interface StaffExitPreviewResponse {
-    decision: StaffExitDecision | string;
+    exitDecision: StaffExitDecision | string;
+    decision?: StaffExitDecision | string;
     sessionId?: string | null;
     plateNumber?: string | null;
-    licensePlate?: string | null;
     cardCode?: string | null;
     slotCode?: string | null;
     floorName?: string | null;
     zoneName?: string | null;
     parkingName?: string | null;
     checkInAt?: string | null;
-    entryTime?: string | null;
     durationMinutes?: number | null;
     amountDue?: number | null;
     surchargeAmount?: number | null;
-    paidAmount?: number | null;
     totalAmount?: number | null;
-    amount?: number | null;
     currency?: string | null;
     paymentStatus?: string | null;
     paidAt?: string | null;
@@ -73,15 +70,14 @@ export interface StaffExitPreviewResponse {
 export interface StaffCompleteExitResponse {
     sessionId?: string | null;
     plateNumber?: string | null;
-    licensePlate?: string | null;
     cardCode?: string | null;
+    checkInAt?: string | null;
     slotCode?: string | null;
     totalAmount?: number | null;
     collectedAmount?: number | null;
     currency?: string | null;
     paymentMode?: StaffExitPaymentMode | string | null;
     checkOutAt?: string | null;
-    exitTime?: string | null;
     status?: string | null;
     slotStatus?: string | null;
     cardStatus?: string | null;

@@ -48,15 +48,16 @@ Complete exit:
 - Initial: shows kiosk context, card input, Preview button, and empty preview
   guidance.
 - Preview loading: disables scan controls and shows a loading icon.
-- `ALLOW_EXIT`: green `PAID ONLINE` panel with plate, card, slot, paid time,
-  exit deadline, amount paid, total amount, and `Complete Exit`.
-- `COLLECT_CASH`: amber `Cash payment required` panel with amount due,
+- `exitDecision=ALLOW_EXIT`: green `PAID ONLINE` panel with plate, card, slot,
+  paid time, exit deadline, amount paid, total amount, and `Complete Exit`.
+- `exitDecision=COLLECT_CASH`: amber `Cash payment required` panel with amount due,
   duration, quote fields when returned, collected amount input defaulted to
   amount due, and `Collect Cash & Complete Exit`.
-- `GRACE_EXPIRED_SURCHARGE`: red `Grace period expired` panel with exit
-  deadline, surcharge amount, collected amount input defaulted to the surcharge,
-  and `Collect Surcharge & Complete Exit`.
-- `BLOCKED`: red error panel with the backend message or mapped backend code.
+- `exitDecision=GRACE_EXPIRED_SURCHARGE`: red `Grace period expired` panel with
+  exit deadline, surcharge amount, collected amount input defaulted to the
+  surcharge, and `Collect Surcharge & Complete Exit`.
+- `exitDecision=BLOCKED`: red error panel with the backend message or mapped
+  backend code when returned.
 - Completion success: green `Gate can open now` panel with plate, card, total
   amount, collected amount, check-out time, payment mode, slot status, card
   status, and `Scan next card`.

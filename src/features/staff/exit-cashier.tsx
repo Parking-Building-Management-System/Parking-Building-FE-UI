@@ -98,26 +98,29 @@ const formatDuration = (value?: number | null) => {
 
 const getPlate = (
     value?: StaffExitPreviewResponse | StaffCompleteExitResponse | null,
-) => value?.plateNumber ?? value?.licensePlate ?? '-';
+) => value?.plateNumber ?? '-';
+
+const getExitDecision = (preview: StaffExitPreviewResponse) =>
+    preview.exitDecision ?? preview.decision ?? 'BLOCKED';
 
 const getPreviewAmount = (preview: StaffExitPreviewResponse) =>
-    preview.totalAmount ?? preview.amount ?? preview.amountDue ?? null;
+    preview.totalAmount ?? preview.amountDue ?? null;
 
 const getCollectedDefault = (preview: StaffExitPreviewResponse) => {
-    if (preview.decision === 'GRACE_EXPIRED_SURCHARGE') {
+    const decision = getExitDecision(preview);
+
+    if (decision === 'GRACE_EXPIRED_SURCHARGE') {
         return preview.surchargeAmount ?? preview.amountDue ?? 0;
     }
 
-    if (preview.decision === 'COLLECT_CASH') {
-        return preview.amountDue ?? preview.totalAmount ?? preview.amount ?? 0;
+    if (decision === 'COLLECT_CASH') {
+        return preview.amountDue ?? preview.totalAmount ?? 0;
     }
 
     return 0;
 };
 
-const getPaymentMode = (
-    decision: StaffExitPreviewResponse['decision'],
-): StaffExitPaymentMode | null => {
+const getPaymentMode = (decision: string): StaffExitPaymentMode | null => {
     if (decision === 'ALLOW_EXIT') {
         return 'ONLINE';
     }
@@ -133,9 +136,7 @@ const getPaymentMode = (
     return null;
 };
 
-const getPrimaryActionLabel = (
-    decision: StaffExitPreviewResponse['decision'],
-) => {
+const getPrimaryActionLabel = (decision: string) => {
     if (decision === 'ALLOW_EXIT') {
         return 'Complete Exit';
     }
@@ -186,6 +187,29 @@ const getStaffExitErrorMessage = (error: unknown) => {
 
         if (normalized.includes('grace_period_expired')) {
             return 'The online payment grace period has expired. Collect the surcharge before exit.';
+        }
+
+        if (normalized.includes('rfid_card_not_found')) {
+            return 'The RFID card was not found.';
+        }
+
+        if (normalized.includes('card_code_does_not_match_session')) {
+            return 'The card code does not match this parking session.';
+        }
+
+        if (
+            normalized.includes('online_exit_not_allowed') ||
+            normalized.includes('cash_exit_not_allowed') ||
+            normalized.includes('surcharge_exit_not_allowed')
+        ) {
+            return 'The selected payment mode no longer matches the latest exit decision. Preview the card again.';
+        }
+
+        if (
+            normalized.includes('cash_amount_too_low') ||
+            normalized.includes('surcharge_amount_too_low')
+        ) {
+            return 'The collected amount is lower than the required amount.';
         }
 
         if (normalized.includes('card_qr_not_found')) {
@@ -267,7 +291,7 @@ export function StaffExitCashier() {
     const canComplete = useMemo(
         () =>
             !!preview?.sessionId &&
-            !!getPaymentMode(preview.decision) &&
+            !!getPaymentMode(getExitDecision(preview)) &&
             !completeExitMutation.isPending,
         [completeExitMutation.isPending, preview],
     );
@@ -292,7 +316,7 @@ export function StaffExitCashier() {
             return;
         }
 
-        const paymentMode = getPaymentMode(preview.decision);
+        const paymentMode = getPaymentMode(getExitDecision(preview));
 
         if (!paymentMode) {
             toast.error('This session is blocked and cannot be completed.');
@@ -519,7 +543,7 @@ function PreviewDecision({
     setConfirmOpen: (value: boolean) => void;
     setNote: (value: string) => void;
 }) {
-    const decision = preview.decision;
+    const decision = getExitDecision(preview);
     const isPaidOnline = decision === 'ALLOW_EXIT';
     const isCash = decision === 'COLLECT_CASH';
     const isSurcharge = decision === 'GRACE_EXPIRED_SURCHARGE';
@@ -605,8 +629,7 @@ function PreviewDecision({
                         label={isPaidOnline ? 'Amount paid' : 'Amount due'}
                         value={formatMoney(
                             isPaidOnline
-                                ? (preview.paidAmount ??
-                                      getPreviewAmount(preview))
+                                ? getPreviewAmount(preview)
                                 : (preview.amountDue ??
                                       getPreviewAmount(preview)),
                             currency,
@@ -704,7 +727,7 @@ function CompletionSuccess({
     scanNextButtonRef: React.RefObject<HTMLButtonElement | null>;
 }) {
     const currency = completion.currency ?? 'VND';
-    const checkOutAt = completion.checkOutAt ?? completion.exitTime;
+    const checkOutAt = completion.checkOutAt;
 
     return (
         <Card>
@@ -784,7 +807,9 @@ function ConfirmCompleteDialog({
     pending: boolean;
     preview: StaffExitPreviewResponse | null;
 }) {
-    const paymentMode = preview ? getPaymentMode(preview.decision) : null;
+    const paymentMode = preview
+        ? getPaymentMode(getExitDecision(preview))
+        : null;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
