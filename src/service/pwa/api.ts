@@ -2,7 +2,10 @@ import axios, { type AxiosResponse } from 'axios';
 
 import { ApiError, type ApiResponse } from '@/lib/api/axios-config';
 import { getApiUrl } from '@/lib/api/api-url';
-import type { PwaActiveSessionResponse } from '@/service/pwa/type';
+import type {
+    PwaActiveSessionResponse,
+    PwaCheckoutQuoteResponse,
+} from '@/service/pwa/type';
 
 const PWA_ENDPOINT = '/pwa';
 
@@ -34,6 +37,8 @@ const getApiResult = <T>(response: AxiosResponse<ApiResponse<T>>): T => {
 
 export const pwaQueryKeys = {
     activeSession: (qrToken: string) => ['pwa-active-session', qrToken] as const,
+    checkoutQuote: (qrToken: string) =>
+        ['pwa-checkout-quote', qrToken] as const,
 };
 
 export const getPwaCardActiveSessionApi = async (qrToken: string) => {
@@ -49,6 +54,31 @@ export const getPwaCardActiveSessionApi = async (qrToken: string) => {
                 error.response?.data?.message ||
                     error.message ||
                     'Cannot load active session',
+                {
+                    status: error.response?.status,
+                    code: error.response?.data?.code,
+                    details: error.response?.data?.errors,
+                },
+            );
+        }
+
+        throw error;
+    }
+};
+
+export const getPwaCheckoutQuoteApi = async (qrToken: string) => {
+    try {
+        const response = await publicApiClient.get<
+            ApiResponse<PwaCheckoutQuoteResponse>
+        >(`${PWA_ENDPOINT}/cards/${encodeURIComponent(qrToken)}/checkout-quote`);
+
+        return getApiResult(response);
+    } catch (error) {
+        if (axios.isAxiosError<ApiResponse>(error)) {
+            throw new ApiError(
+                error.response?.data?.message ||
+                    error.message ||
+                    'Cannot load checkout quote',
                 {
                     status: error.response?.status,
                     code: error.response?.data?.code,
