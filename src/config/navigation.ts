@@ -59,13 +59,6 @@ export const navigationGroups: NavigationGroup[] = [
                 href: '/admin/tenants',
                 icon: Building2,
                 roles: ['SYSTEM_ADMIN'],
-                showOverviewChild: false,
-                children: [
-                    {
-                        title: 'All Tenants',
-                        href: '/admin/tenants',
-                    },
-                ],
             },
             {
                 title: 'Master Data',
