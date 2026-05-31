@@ -2,8 +2,12 @@ import type { AxiosResponse } from 'axios';
 
 import apiClient, { ApiResponse } from '@/lib/api/axios-config';
 import type {
+    StaffCompleteExitRequest,
+    StaffCompleteExitResponse,
     StaffCheckInRequest,
     StaffCheckInResponse,
+    StaffExitPreviewRequest,
+    StaffExitPreviewResponse,
 } from '@/service/staff/type';
 
 const STAFF_ENDPOINT = '/staff';
@@ -18,6 +22,8 @@ const getApiResult = <T>(response: AxiosResponse<ApiResponse<T>>): T => {
 
 export const staffQueryKeys = {
     parkingSessions: ['staff', 'parking-sessions'] as const,
+    exitPreview: ['staff', 'parking-sessions', 'exit-preview'] as const,
+    completeExit: ['staff', 'parking-sessions', 'complete-exit'] as const,
 };
 
 export const checkInParkingSessionApi = async (data: StaffCheckInRequest) => {
@@ -26,6 +32,30 @@ export const checkInParkingSessionApi = async (data: StaffCheckInRequest) => {
         AxiosResponse<ApiResponse<StaffCheckInResponse>>,
         StaffCheckInRequest
     >(`${STAFF_ENDPOINT}/parking-sessions/check-in`, data);
+
+    return getApiResult(response);
+};
+
+export const previewParkingSessionExitApi = async (
+    data: StaffExitPreviewRequest,
+) => {
+    const response = await apiClient.post<
+        ApiResponse<StaffExitPreviewResponse>,
+        AxiosResponse<ApiResponse<StaffExitPreviewResponse>>,
+        StaffExitPreviewRequest
+    >(`${STAFF_ENDPOINT}/parking-sessions/exit-preview`, data);
+
+    return getApiResult(response);
+};
+
+export const completeParkingSessionExitApi = async (
+    data: StaffCompleteExitRequest,
+) => {
+    const response = await apiClient.post<
+        ApiResponse<StaffCompleteExitResponse>,
+        AxiosResponse<ApiResponse<StaffCompleteExitResponse>>,
+        StaffCompleteExitRequest
+    >(`${STAFF_ENDPOINT}/parking-sessions/complete-exit`, data);
 
     return getApiResult(response);
 };
