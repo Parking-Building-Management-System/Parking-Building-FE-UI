@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
     CheckCircle2,
     ClipboardCheck,
@@ -22,7 +22,6 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import {
     listManagerDeviceApprovalsApi,
-    listManagerKioskStaffApi,
     listManagerKiosksApi,
     managerKioskDeviceQueryKeys,
 } from '@/service/manager/kiosk-device-api';
@@ -66,14 +65,6 @@ export function StaffDevicesOverview() {
         queryFn: listManagerDeviceApprovalsApi,
         retry: false,
     });
-    const assignmentQueries = useQueries({
-        queries: (kiosksQuery.data ?? []).map((kiosk) => ({
-            queryKey: managerKioskDeviceQueryKeys.kioskStaff(kiosk.id),
-            queryFn: () => listManagerKioskStaffApi(kiosk.id),
-            enabled: !!kiosk.id,
-            retry: false,
-        })),
-    });
 
     const staffTotal = staffQuery.data?.totalElements ?? 0;
     const activeStaffTotal = activeStaffQuery.data?.totalElements ?? 0;
@@ -81,14 +72,12 @@ export function StaffDevicesOverview() {
     const kiosks = kiosksQuery.data ?? [];
     const activeKiosks = activeKiosksQuery.data ?? [];
     const pendingApprovals = getPendingApprovalCount(approvalsQuery.data);
-    const assignedStaffCount = assignmentQueries.reduce(
-        (total, query) => total + (query.data?.length ?? 0),
+    const approvedDevices = getApprovalStatusCount(approvalsQuery.data, 'APPROVED');
+    const assignedStaffCount = kiosks.reduce(
+        (total, kiosk) =>
+            total + (kiosk.assignedStaffCount ?? kiosk.staffCount ?? 0),
         0,
     );
-    const assignmentPending = assignmentQueries.some(
-        (query) => query.isLoading || query.isPending,
-    );
-    const assignmentApiPending = assignmentQueries.some((query) => query.isError);
     const isLoading =
         staffQuery.isLoading ||
         activeStaffQuery.isLoading ||
@@ -145,6 +134,13 @@ export function StaffDevicesOverview() {
             badge: pendingApprovals,
             icon: ShieldCheck,
         },
+        {
+            label: 'Approved Devices',
+            value: approvedDevices,
+            loading: approvalsQuery.isLoading,
+            apiPending: approvalsQuery.isError,
+            icon: ShieldCheck,
+        },
     ];
 
     const checklist = [
@@ -162,8 +158,8 @@ export function StaffDevicesOverview() {
         {
             label: 'Staff assigned to kiosks',
             done: assignedStaffCount > 0,
-            pending: assignmentPending,
-            apiPending: assignmentApiPending,
+            pending: kiosksQuery.isLoading,
+            apiPending: kiosksQuery.isError,
         },
         {
             label: 'Pending approvals reviewed',
@@ -211,7 +207,7 @@ export function StaffDevicesOverview() {
         <div className="space-y-6 p-6">
             <OverviewHeader />
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-7">
                 {stats.map((stat) => (
                     <Card key={stat.label}>
                         <CardHeader className="flex flex-row items-start justify-between gap-3">
@@ -355,11 +351,14 @@ function getPendingApprovalCount(
         return 0;
     }
 
-    if (typeof items.totalElements === 'number') {
-        return items.totalElements;
-    }
-
     return items.filter((item) => item.status === 'PENDING').length;
+}
+
+function getApprovalStatusCount(
+    items: { status: string }[] | undefined,
+    status: string,
+) {
+    return (items ?? []).filter((item) => item.status === status).length;
 }
 
 function OverviewHeader() {
