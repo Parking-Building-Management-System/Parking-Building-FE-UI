@@ -415,6 +415,7 @@ export function StaffExitCashier() {
                                 <Input
                                     ref={cardInputRef}
                                     value={cardCode}
+                                    className="h-12 text-lg font-semibold tracking-wide"
                                     placeholder="BCONS-0004"
                                     autoComplete="off"
                                     disabled={
@@ -427,7 +428,7 @@ export function StaffExitCashier() {
                                 />
                                 <Button
                                     type="submit"
-                                    className="h-9 sm:w-36"
+                                    className="h-12 sm:w-40"
                                     disabled={
                                         previewMutation.isPending ||
                                         completeExitMutation.isPending
