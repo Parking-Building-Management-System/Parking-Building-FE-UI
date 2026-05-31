@@ -51,14 +51,14 @@ const getStaffCheckInErrorMessage = (error: unknown) => {
             normalizedMessage.includes('card not found') ||
             normalizedMessage.includes('không tìm thấy thẻ')
         ) {
-            return 'Không tìm thấy thẻ. Kiểm tra lại mã thẻ.';
+            return 'Card was not found. Check the card code and try again.';
         }
 
         if (
             normalizedMessage.includes('already in use') ||
             normalizedMessage.includes('đang được sử dụng')
         ) {
-            return 'Thẻ đang được sử dụng cho lượt gửi xe khác.';
+            return 'This card is already being used by another active session.';
         }
 
         if (
@@ -66,14 +66,14 @@ const getStaffCheckInErrorMessage = (error: unknown) => {
             normalizedMessage.includes('hết chỗ') ||
             normalizedMessage.includes('không còn chỗ')
         ) {
-            return 'Không còn slot trống phù hợp.';
+            return 'No suitable parking slot is currently available.';
         }
 
         if (
             error.code === 4002 ||
             normalizedMessage.includes('kiosk_context_required')
         ) {
-            return 'Thiếu ngữ cảnh kiosk. Đăng nhập lại từ thiết bị kiosk đã được duyệt.';
+            return 'Kiosk context is missing. Sign in again from an approved kiosk device.';
         }
 
         if (
@@ -81,33 +81,33 @@ const getStaffCheckInErrorMessage = (error: unknown) => {
             normalizedMessage.includes('device_not_trusted') ||
             normalizedMessage.includes('thiết bị chưa được cấp quyền')
         ) {
-            return 'Thiết bị staff chưa được quản lý duyệt.';
+            return 'This staff device has not been approved by a manager.';
         }
 
         if (normalizedMessage.includes('staff_not_assigned_to_kiosk')) {
-            return 'Staff chưa được gán vào kiosk này.';
+            return 'Your staff account is not assigned to this kiosk.';
         }
 
         if (normalizedMessage.includes('kiosk_inactive')) {
-            return 'Kiosk đang không hoạt động.';
+            return 'This kiosk is inactive.';
         }
 
         if (error.status === 401) {
-            return 'Phiên đăng nhập đã hết hạn hoặc chưa đăng nhập.';
+            return 'Your login session has expired. Please sign in again.';
         }
 
         if (error.status === 403) {
-            return 'Bạn không có quyền tạo lượt vào hoặc thiết bị chưa được cấp quyền.';
+            return 'You do not have permission to create entry sessions from this device.';
         }
 
-        return message || 'Không thể tạo lượt vào.';
+        return message || 'Could not create the entry session.';
     }
 
     if (error instanceof Error) {
-        return error.message || 'Không thể tạo lượt vào.';
+        return error.message || 'Could not create the entry session.';
     }
 
-    return 'Không thể tạo lượt vào.';
+    return 'Could not create the entry session.';
 };
 
 const formatEntryTime = (entryTime: string) => {
@@ -117,7 +117,7 @@ const formatEntryTime = (entryTime: string) => {
         return entryTime;
     }
 
-    return parsed.toLocaleString('vi-VN');
+    return parsed.toLocaleString('en-US');
 };
 
 const buildPwaPath = (result: StaffCheckInResponse) => {
@@ -182,7 +182,7 @@ export function StaffEntryCheckIn() {
         mutationFn: checkInParkingSessionApi,
         onSuccess: (result) => {
             setCheckInResult(result);
-            toast.success('Đã giữ chỗ và mở rào giả lập.');
+            toast.success('Slot assigned. Entry gate can open.');
             form.reset({
                 plateNumber: '',
                 cardCode: '',
@@ -201,31 +201,31 @@ export function StaffEntryCheckIn() {
 
         return [
             {
-                label: 'Biển số',
+                label: 'Plate',
                 value: checkInResult.plateNumber,
             },
             {
-                label: 'Mã thẻ',
+                label: 'Card',
                 value: checkInResult.cardCode,
             },
             {
-                label: 'Slot được giữ',
+                label: 'Assigned slot',
                 value: checkInResult.assignedSlotCode,
             },
             {
-                label: 'Khu vực',
+                label: 'Zone',
                 value: checkInResult.zoneName,
             },
             {
-                label: 'Bãi xe',
+                label: 'Parking',
                 value: checkInResult.parkingName ?? checkInResult.parkingId,
             },
             {
-                label: 'Giờ vào',
+                label: 'Entry time',
                 value: formatEntryTime(checkInResult.entryTime),
             },
             {
-                label: 'Trạng thái',
+                label: 'Status',
                 value: checkInResult.status,
             },
         ];
@@ -239,15 +239,17 @@ export function StaffEntryCheckIn() {
 
     const onCopyPwaLink = async () => {
         if (!publicPwaUrl) {
-            toast.error('Backend chưa trả qrToken hoặc pwaAccessPath.');
+            toast.error('The backend did not return a PWA link for this card.');
             return;
         }
 
         try {
             await navigator.clipboard.writeText(publicPwaUrl);
-            toast.success('Đã copy link PWA.');
+            toast.success('PWA link copied.');
         } catch {
-            toast.error('Không thể copy link. Hãy copy thủ công từ ô link.');
+            toast.error(
+                'Could not copy the link. Copy it manually from the link field.',
+            );
         }
     };
 
@@ -266,18 +268,17 @@ export function StaffEntryCheckIn() {
                     Entry Check-in
                 </h1>
                 <p className="text-muted-foreground max-w-2xl text-sm">
-                    Tạo lượt gửi xe bằng biển số và mã thẻ, sau đó giữ slot và
-                    mở rào giả lập từ hệ thống staff.
+                    Create an entry session with a plate number and RFID card,
+                    then hand the driver their public PWA guide.
                 </p>
             </div>
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Tạo lượt vào</CardTitle>
+                        <CardTitle>Create entry session</CardTitle>
                         <CardDescription>
-                            Endpoint sử dụng: POST
-                            /staff/parking-sessions/check-in
+                            Fast check-in for staffed entry gates.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -298,8 +299,9 @@ export function StaffEntryCheckIn() {
                             </div>
                         ) : (
                             <div className="text-muted-foreground mb-5 rounded-lg border p-3 text-xs">
-                                Chưa có workContext từ /auth/me. Request sẽ giữ
-                                DEV fallback hiện tại và không gửi tenantId.
+                                No kiosk context was returned by your session.
+                                The backend may reject check-in until this
+                                device is approved.
                             </div>
                         )}
                         <Form {...form}>
@@ -314,12 +316,13 @@ export function StaffEntryCheckIn() {
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>
-                                                    Biển số xe
+                                                    Plate number
                                                 </FormLabel>
                                                 <FormControl>
                                                     <Input
                                                         placeholder="51A-12345"
                                                         autoComplete="off"
+                                                        autoFocus
                                                         disabled={
                                                             checkInMutation.isPending
                                                         }
@@ -336,7 +339,7 @@ export function StaffEntryCheckIn() {
                                         name="cardCode"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Mã thẻ</FormLabel>
+                                                <FormLabel>Card code</FormLabel>
                                                 <FormControl>
                                                     <Input
                                                         placeholder="CARD-001"
@@ -359,7 +362,7 @@ export function StaffEntryCheckIn() {
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>
-                                                Ảnh lúc vào (URL, optional)
+                                                Entry image URL (optional)
                                             </FormLabel>
                                             <FormControl>
                                                 <Input
@@ -372,8 +375,9 @@ export function StaffEntryCheckIn() {
                                                 />
                                             </FormControl>
                                             <FormDescription>
-                                                Upload ảnh thật/camera chưa
-                                                triển khai trong MVP này.
+                                                Camera upload is not part of
+                                                this demo; paste an image URL
+                                                only when available.
                                             </FormDescription>
                                             <FormMessage />
                                         </FormItem>
@@ -388,8 +392,8 @@ export function StaffEntryCheckIn() {
                                 >
                                     <DoorOpen data-icon="inline-start" />
                                     {checkInMutation.isPending
-                                        ? 'Đang tạo lượt...'
-                                        : 'Tạo lượt & Mở rào'}
+                                        ? 'Creating session...'
+                                        : 'Create Entry & Open Gate'}
                                 </Button>
                             </form>
                         </Form>
@@ -399,16 +403,16 @@ export function StaffEntryCheckIn() {
                 <div className="space-y-4">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Kết quả check-in</CardTitle>
+                            <CardTitle>Check-in result</CardTitle>
                             <CardDescription>
-                                Thông tin giữ chỗ trả về từ backend.
+                                Slot assignment and PWA handoff details.
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
                             {checkInResult ? (
                                 <div className="space-y-4">
                                     <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm font-medium text-green-700 dark:text-green-300">
-                                        Đã giữ chỗ và mở rào giả lập
+                                        Slot assigned. Entry gate can open.
                                     </div>
 
                                     <div className="grid gap-3">
@@ -427,16 +431,16 @@ export function StaffEntryCheckIn() {
                                         ))}
                                     </div>
 
-                                    <div className="rounded-lg border bg-muted/30 p-4">
+                                    <div className="bg-muted/30 rounded-lg border p-4">
                                         <div className="flex flex-col gap-4">
                                             <div>
                                                 <h3 className="text-lg font-semibold">
-                                                    Đưa khách quét mã này
+                                                    Driver PWA handoff
                                                 </h3>
                                                 <p className="text-muted-foreground text-sm">
-                                                    Link mở trang hướng dẫn gửi
-                                                    xe công khai của thẻ vừa
-                                                    check-in.
+                                                    Ask the driver to scan this
+                                                    QR code or open the public
+                                                    parking guide link.
                                                 </p>
                                             </div>
 
@@ -454,7 +458,7 @@ export function StaffEntryCheckIn() {
                                                             />
                                                         </div>
                                                     </div>
-                                                    <div className="rounded-md border bg-background px-3 py-2 text-xs break-all">
+                                                    <div className="bg-background rounded-md border px-3 py-2 text-xs break-all">
                                                         {publicPwaUrl}
                                                     </div>
                                                     <div className="grid gap-2 sm:grid-cols-2">
@@ -486,11 +490,11 @@ export function StaffEntryCheckIn() {
                                                     </div>
                                                 </>
                                             ) : (
-                                                <div className="text-muted-foreground rounded-md border border-dashed bg-background p-4 text-sm">
-                                                    Backend chưa trả qrToken hoặc
-                                                    pwaAccessPath nên chưa thể
-                                                    tạo link PWA. Không dùng mã
-                                                    thẻ làm public token.
+                                                <div className="text-muted-foreground bg-background rounded-md border border-dashed p-4 text-sm">
+                                                    The backend did not return a
+                                                    QR token or PWA access path.
+                                                    Do not use the card code as
+                                                    a public token.
                                                 </div>
                                             )}
                                         </div>
@@ -500,8 +504,8 @@ export function StaffEntryCheckIn() {
                                 <div className="text-muted-foreground flex min-h-72 flex-col items-center justify-center gap-3 rounded-lg border border-dashed p-6 text-center text-sm">
                                     <ParkingCircle className="size-10" />
                                     <p>
-                                        Chưa có lượt vào. Nhập biển số và mã thẻ
-                                        để tạo phiên gửi xe.
+                                        No entry session yet. Enter the plate
+                                        and card code to assign a slot.
                                     </p>
                                 </div>
                             )}
@@ -517,8 +521,9 @@ export function StaffEntryCheckIn() {
                                 <div>
                                     <p className="font-medium">Card binding</p>
                                     <p className="text-muted-foreground text-xs">
-                                        Backend kiểm tra thẻ tồn tại và chưa
-                                        được sử dụng.
+                                        The backend verifies that the card
+                                        exists and is not attached to another
+                                        active session.
                                     </p>
                                 </div>
                             </CardContent>
@@ -532,7 +537,8 @@ export function StaffEntryCheckIn() {
                                 <div>
                                     <p className="font-medium">Entry image</p>
                                     <p className="text-muted-foreground text-xs">
-                                        MVP chỉ gửi URL ảnh nếu staff nhập.
+                                        This demo sends an image URL only when
+                                        staff provides one.
                                     </p>
                                 </div>
                             </CardContent>
