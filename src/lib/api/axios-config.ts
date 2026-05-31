@@ -40,7 +40,7 @@ export class ApiError extends Error {
     }
 }
 
-// 2. Khởi tạo Axios Instance
+// Shared authenticated Axios instance.
 export const apiClient: AxiosInstance = axios.create({
     baseURL: apiUrl,
     withCredentials: true,
@@ -102,15 +102,12 @@ apiClient.interceptors.response.use(
         const status = error.response?.status;
         const errorData = error.response?.data;
 
-        // Xử lý 401 - Token hết hạn
         if (status === 401 && originalRequest && !originalRequest._retry) {
-            // Nếu API đang gọi lại chính là API refresh bị 401 -> Refresh token cũng đã hết hạn/invalid
             if (originalRequest.url?.includes('/auth/refresh')) {
                 useAuthStore.getState().setJwtToken(null);
-                // useAuthStore.getState().logout(); // Mở comment nếu bạn có action logout
                 return Promise.reject(
                     new ApiError(
-                        'Phiên đăng nhập hết hạn, vui lòng đăng nhập lại.',
+                        'Your login session has expired. Please sign in again.',
                         { status: 401 },
                     ),
                 );
@@ -152,7 +149,7 @@ apiClient.interceptors.response.use(
                 processQueue(refreshError as Error, null);
                 useAuthStore.getState().clearAuth();
                 return Promise.reject(
-                    new ApiError('Refresh token thất bại.', { status: 401 }),
+                    new ApiError('Token refresh failed.', { status: 401 }),
                 );
             } finally {
                 isRefreshing = false;
@@ -172,9 +169,7 @@ apiClient.interceptors.response.use(
         }
 
         const message =
-            errorData?.message ||
-            error.message ||
-            'Lỗi hệ thống không xác định';
+            errorData?.message || error.message || 'Unexpected system error.';
         const code = errorData?.code;
         const details = errorData?.errors;
 
