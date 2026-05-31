@@ -202,11 +202,17 @@ export function DeviceApprovals() {
                                                             'PENDING' ||
                                                         rejectMutation.isPending
                                                     }
-                                                    onClick={() =>
-                                                        rejectMutation.mutate(
-                                                            item.id,
-                                                        )
-                                                    }
+                                                    onClick={() => {
+                                                        if (
+                                                            window.confirm(
+                                                                'Reject this device request?',
+                                                            )
+                                                        ) {
+                                                            rejectMutation.mutate(
+                                                                item.id,
+                                                            );
+                                                        }
+                                                    }}
                                                 >
                                                     <X data-icon="inline-start" />
                                                     Reject
@@ -218,12 +224,18 @@ export function DeviceApprovals() {
                                                         disabled={
                                                             revokeMutation.isPending
                                                         }
-                                                        onClick={() =>
-                                                            revokeMutation.mutate(
-                                                                item.deviceId ??
-                                                                    '',
-                                                            )
-                                                        }
+                                                        onClick={() => {
+                                                            if (
+                                                                window.confirm(
+                                                                    'Revoke this device access?',
+                                                                )
+                                                            ) {
+                                                                revokeMutation.mutate(
+                                                                    item.deviceId ??
+                                                                        '',
+                                                                );
+                                                            }
+                                                        }}
                                                     >
                                                         Revoke
                                                     </Button>
@@ -486,10 +498,6 @@ function getPendingApprovalCount(
 ) {
     if (!items) {
         return 0;
-    }
-
-    if (typeof items.totalElements === 'number') {
-        return items.totalElements;
     }
 
     return items.filter((item) => item.status === 'PENDING').length;
