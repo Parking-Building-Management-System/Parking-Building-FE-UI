@@ -1,6 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { PricingMatrix } from '@/features/manager/pricing-matrix';
 
 export default function PricingMatrixPage() {
-    return <MockModulePage {...mockModulePages['/manager/pricing/matrix']} />;
+    return <PricingMatrix />;
 }
