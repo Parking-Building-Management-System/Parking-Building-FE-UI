@@ -84,6 +84,13 @@ export interface StaffCompleteExitResponse {
     message?: string | null;
 }
 
+export interface AvailableRfidCard {
+    id: string;
+    code: string;
+    label?: string | null;
+    status: 'ACTIVE' | string;
+}
+
 export const staffCheckInFormSchema = z.object({
     plateNumber: z
         .string()

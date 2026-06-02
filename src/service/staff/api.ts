@@ -8,6 +8,7 @@ import type {
     StaffCheckInResponse,
     StaffExitPreviewRequest,
     StaffExitPreviewResponse,
+    AvailableRfidCard,
 } from '@/service/staff/type';
 
 const STAFF_ENDPOINT = '/staff';
@@ -24,6 +25,8 @@ export const staffQueryKeys = {
     parkingSessions: ['staff', 'parking-sessions'] as const,
     exitPreview: ['staff', 'parking-sessions', 'exit-preview'] as const,
     completeExit: ['staff', 'parking-sessions', 'complete-exit'] as const,
+    availableRfidCards: (search: string) =>
+        ['staff-available-rfid-cards', search] as const,
 };
 
 export const checkInParkingSessionApi = async (data: StaffCheckInRequest) => {
@@ -56,6 +59,18 @@ export const completeParkingSessionExitApi = async (
         AxiosResponse<ApiResponse<StaffCompleteExitResponse>>,
         StaffCompleteExitRequest
     >(`${STAFF_ENDPOINT}/parking-sessions/complete-exit`, data);
+
+    return getApiResult(response);
+};
+
+export const listAvailableRfidCardsApi = async (
+    search = '',
+    limit = 50,
+) => {
+    const response = await apiClient.get<ApiResponse<AvailableRfidCard[]>>(
+        `${STAFF_ENDPOINT}/rfid-cards/available`,
+        { params: { search: search.trim() || undefined, limit } },
+    );
 
     return getApiResult(response);
 };
