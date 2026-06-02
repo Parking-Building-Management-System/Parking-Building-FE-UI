@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
 import {
     Copy,
@@ -11,6 +11,8 @@ import {
     IdCard,
     ImageIcon,
     ParkingCircle,
+    RefreshCw,
+    Search,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -33,9 +35,18 @@ import {
     FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { ApiError } from '@/lib/api/axios-config';
 import {
     checkInParkingSessionApi,
+    listAvailableRfidCardsApi,
+    staffQueryKeys,
     staffCheckInFormSchema,
     type StaffCheckInFormValues,
     type StaffCheckInResponse,
@@ -166,9 +177,12 @@ const buildCheckInRequest = (
 };
 
 export function StaffEntryCheckIn() {
+    const queryClient = useQueryClient();
     const workContext = useAuthStore((state) => state.user?.workContext);
     const [checkInResult, setCheckInResult] =
         useState<StaffCheckInResponse | null>(null);
+    const [cardSearch, setCardSearch] = useState('');
+    const deferredCardSearch = useDeferredValue(cardSearch);
     const form = useForm<StaffCheckInFormValues>({
         resolver: zodResolver(staffCheckInFormSchema),
         defaultValues: {
@@ -178,15 +192,24 @@ export function StaffEntryCheckIn() {
         },
     });
 
+    const availableCardsQuery = useQuery({
+        queryKey: staffQueryKeys.availableRfidCards(deferredCardSearch),
+        queryFn: () => listAvailableRfidCardsApi(deferredCardSearch, 50),
+    });
+
     const checkInMutation = useMutation({
         mutationFn: checkInParkingSessionApi,
-        onSuccess: (result) => {
+        onSuccess: async (result) => {
             setCheckInResult(result);
             toast.success('Slot assigned. Entry gate can open.');
             form.reset({
                 plateNumber: '',
                 cardCode: '',
                 entryImageUrl: '',
+            });
+            setCardSearch('');
+            await queryClient.invalidateQueries({
+                queryKey: ['staff-available-rfid-cards'],
             });
         },
         onError: (error) => {
@@ -236,6 +259,7 @@ export function StaffEntryCheckIn() {
         [checkInResult],
     );
     const publicPwaUrl = useMemo(() => buildPublicUrl(pwaPath), [pwaPath]);
+    const availableCards = availableCardsQuery.data ?? [];
 
     const onCopyPwaLink = async () => {
         if (!publicPwaUrl) {
@@ -339,17 +363,135 @@ export function StaffEntryCheckIn() {
                                         name="cardCode"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Card code</FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        placeholder="CARD-001"
-                                                        autoComplete="off"
-                                                        disabled={
-                                                            checkInMutation.isPending
+                                                <FormLabel>RFID card</FormLabel>
+                                                <div className="space-y-2">
+                                                    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                                                        <div className="relative">
+                                                            <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+                                                            <Input
+                                                                className="pl-9"
+                                                                placeholder="Search available cards"
+                                                                autoComplete="off"
+                                                                disabled={
+                                                                    checkInMutation.isPending
+                                                                }
+                                                                value={
+                                                                    cardSearch
+                                                                }
+                                                                onChange={(
+                                                                    event,
+                                                                ) =>
+                                                                    setCardSearch(
+                                                                        event
+                                                                            .target
+                                                                            .value,
+                                                                    )
+                                                                }
+                                                            />
+                                                        </div>
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="icon"
+                                                            disabled={
+                                                                availableCardsQuery.isFetching
+                                                            }
+                                                            onClick={() =>
+                                                                availableCardsQuery.refetch()
+                                                            }
+                                                        >
+                                                            <RefreshCw className="size-4" />
+                                                        </Button>
+                                                    </div>
+                                                    <Select
+                                                        value={
+                                                            availableCards.some(
+                                                                (card) =>
+                                                                    card.code ===
+                                                                    field.value,
+                                                            )
+                                                                ? field.value
+                                                                : undefined
                                                         }
-                                                        {...field}
-                                                    />
-                                                </FormControl>
+                                                        disabled={
+                                                            checkInMutation.isPending ||
+                                                            availableCardsQuery.isLoading ||
+                                                            availableCards.length ===
+                                                                0
+                                                        }
+                                                        onValueChange={(value) =>
+                                                            field.onChange(
+                                                                value,
+                                                            )
+                                                        }
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Choose available card" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {availableCards.map(
+                                                                (card) => (
+                                                                    <SelectItem
+                                                                        key={
+                                                                            card.id
+                                                                        }
+                                                                        value={
+                                                                            card.code
+                                                                        }
+                                                                    >
+                                                                        {card.label ||
+                                                                            card.code}
+                                                                    </SelectItem>
+                                                                ),
+                                                            )}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    {availableCardsQuery.isError ? (
+                                                        <p className="text-destructive text-xs">
+                                                            Could not load
+                                                            available cards.
+                                                            Manual entry is
+                                                            still available.
+                                                        </p>
+                                                    ) : availableCardsQuery.isLoading ? (
+                                                        <p className="text-muted-foreground text-xs">
+                                                            Loading available
+                                                            cards...
+                                                        </p>
+                                                    ) : availableCards.length ===
+                                                      0 ? (
+                                                        <p className="text-muted-foreground text-xs">
+                                                            No available cards.
+                                                            Ask manager to
+                                                            generate or release
+                                                            cards.
+                                                        </p>
+                                                    ) : (
+                                                        <p className="text-muted-foreground text-xs">
+                                                            {availableCards.length.toLocaleString()}{' '}
+                                                            available cards
+                                                            loaded.
+                                                        </p>
+                                                    )}
+                                                    <FormControl>
+                                                        <Input
+                                                            placeholder="Manual card code fallback"
+                                                            autoComplete="off"
+                                                            disabled={
+                                                                checkInMutation.isPending
+                                                            }
+                                                            value={field.value}
+                                                            onChange={(event) =>
+                                                                field.onChange(
+                                                                    event.target.value.toUpperCase(),
+                                                                )
+                                                            }
+                                                            onBlur={
+                                                                field.onBlur
+                                                            }
+                                                        />
+                                                    </FormControl>
+                                                </div>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
