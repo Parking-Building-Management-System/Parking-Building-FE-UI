@@ -15,6 +15,7 @@ import {
     Receipt,
     Settings,
     ShieldCheck,
+    ShieldAlert,
     Siren,
     UsersRound,
 } from 'lucide-react';
@@ -236,6 +237,26 @@ export const navigationGroups: NavigationGroup[] = [
                 ],
             },
             {
+                title: 'Safety & Compliance',
+                href: '/manager/safety',
+                icon: ShieldAlert,
+                roles: ['PARKING_MANAGER'],
+                children: [
+                    {
+                        title: 'Fire Extinguishers',
+                        href: '/manager/safety/fire-extinguishers',
+                    },
+                    {
+                        title: 'Fire Safety Map',
+                        href: '/manager/safety/fire-map',
+                    },
+                    {
+                        title: 'Inspection Logs',
+                        href: '/manager/safety/inspections',
+                    },
+                ],
+            },
+            {
                 title: 'Incidents & Violations',
                 href: '/manager/incidents',
                 icon: AlertTriangle,
@@ -297,6 +318,12 @@ export const navigationGroups: NavigationGroup[] = [
                 title: 'Exit Cashier',
                 href: '/staff/exit',
                 icon: Receipt,
+                roles: ['STAFF'],
+            },
+            {
+                title: 'Fire Inspection',
+                href: '/staff/fire-inspection',
+                icon: ShieldAlert,
                 roles: ['STAFF'],
             },
             {
