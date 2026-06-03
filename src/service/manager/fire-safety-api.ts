@@ -25,6 +25,22 @@ const getApiResult = <T>(response: AxiosResponse<ApiResponse<T>>): T => {
     return response.data.result;
 };
 
+const compactParams = <T extends object>(params: T) =>
+    Object.fromEntries(
+        Object.entries(params)
+            .map(([key, value]) => [
+                key,
+                typeof value === 'string' ? value.trim() : value,
+            ])
+            .filter(([, value]) => {
+                if (value == null || value === '') {
+                    return false;
+                }
+
+                return typeof value !== 'number' || Number.isFinite(value);
+            }),
+    ) as Partial<T>;
+
 export const managerFireSafetyQueryKeys = {
     extinguishers: (filters: FireExtinguisherListParams) =>
         ['manager-fire-extinguishers', filters] as const,
@@ -40,7 +56,9 @@ export const listFireExtinguishersApi = async (
 ) => {
     const response = await apiClient.get<
         ApiResponse<FireExtinguisherPageResponse>
-    >(`${MANAGER_ENDPOINT}/fire-extinguishers`, { params });
+    >(`${MANAGER_ENDPOINT}/fire-extinguishers`, {
+        params: compactParams(params),
+    });
 
     return getApiResult(response);
 };
@@ -131,7 +149,9 @@ export const listFireInspectionLogsApi = async (
 ) => {
     const response = await apiClient.get<
         ApiResponse<FireInspectionLogPageResponse>
-    >(`${MANAGER_ENDPOINT}/fire-inspections/logs`, { params });
+    >(`${MANAGER_ENDPOINT}/fire-inspections/logs`, {
+        params: compactParams(params),
+    });
 
     return getApiResult(response);
 };

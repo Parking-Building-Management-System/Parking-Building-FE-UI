@@ -17,6 +17,16 @@ const getApiResult = <T>(response: AxiosResponse<ApiResponse<T>>): T => {
     return response.data.result;
 };
 
+const compactParams = <T extends object>(params: T) =>
+    Object.fromEntries(
+        Object.entries(params)
+            .map(([key, value]) => [
+                key,
+                typeof value === 'string' ? value.trim() : value,
+            ])
+            .filter(([, value]) => value != null && value !== ''),
+    ) as Partial<T>;
+
 export const staffFireInspectionQueryKeys = {
     due: (filters: StaffFireInspectionDueParams) =>
         ['staff-fire-inspections-due', filters] as const,
@@ -27,7 +37,7 @@ export const listDueFireInspectionsApi = async (
 ) => {
     const response = await apiClient.get<ApiResponse<DueFireInspectionItem[]>>(
         `${STAFF_ENDPOINT}/fire-inspections/due`,
-        { params },
+        { params: compactParams(params) },
     );
 
     return getApiResult(response);
