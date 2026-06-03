@@ -75,7 +75,6 @@ export function StaffFireInspectionPage() {
     const [status, setStatus] = useState(ALL);
     const [selectedId, setSelectedId] = useState('');
     const [photoFile, setPhotoFile] = useState<File | null>(null);
-    const [photoPreviewUrl, setPhotoPreviewUrl] = useState('');
     const [uploadStatus, setUploadStatus] = useState('');
     const [form, setForm] = useState<StaffFireInspectionFormValues>({
         fireExtinguisherId: '',
@@ -166,18 +165,18 @@ export function StaffFireInspectionPage() {
 
     const dueItems = dueQuery.data ?? [];
     const selectedItem = dueItems.find((item) => item.id === selectedId);
+    const photoPreviewUrl = useMemo(
+        () => (photoFile ? URL.createObjectURL(photoFile) : ''),
+        [photoFile],
+    );
 
     useEffect(() => {
-        if (!photoFile) {
-            setPhotoPreviewUrl('');
-            return;
-        }
-
-        const previewUrl = URL.createObjectURL(photoFile);
-        setPhotoPreviewUrl(previewUrl);
-
-        return () => URL.revokeObjectURL(previewUrl);
-    }, [photoFile]);
+        return () => {
+            if (photoPreviewUrl) {
+                URL.revokeObjectURL(photoPreviewUrl);
+            }
+        };
+    }, [photoPreviewUrl]);
 
     const selectItem = (item: DueFireInspectionItem) => {
         setSelectedId(item.id);
