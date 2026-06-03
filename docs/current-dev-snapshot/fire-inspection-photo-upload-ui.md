@@ -4,18 +4,18 @@
 
 - Route: `/staff/fire-inspection`
 - Manager review route: `/manager/safety/inspections`
-- This is a frontend scaffold for the backend photo upload work in progress.
-- Live upload was not exercised in this pass because the backend endpoint is not confirmed ready.
+- Frontend is synced to the final backend photo upload contract in `fire-inspection-photo-upload-mvp.md`.
+- Live upload was not exercised in this pass; use the manual smoke checklist below once the backend and storage are running.
 
-## Expected Backend Contract
+## Final Backend Contract
 
-Assumed presign endpoint:
+Presign endpoint:
 
 ```http
 POST /staff/fire-inspections/photos/presign-upload
 ```
 
-Expected request:
+Request:
 
 ```json
 {
@@ -24,7 +24,7 @@ Expected request:
 }
 ```
 
-Expected response:
+Response:
 
 ```json
 {
@@ -38,7 +38,7 @@ Expected response:
 }
 ```
 
-The inspection submit request currently maps the uploaded object key to `photoObjectKey`. If the final backend field name differs, update the mapper in `src/features/staff/fire-inspection.tsx`.
+The inspection submit request maps the uploaded object key to the confirmed final field name, `photoObjectKey`.
 
 ## Staff Upload Flow
 
@@ -48,7 +48,8 @@ The inspection submit request currently maps the uploaded object key to `photoOb
 4. On submit, if a file is selected:
    - Call `POST /staff/fire-inspections/photos/presign-upload`.
    - Upload the file to `uploadUrl` with `fetch` and the returned method, currently expected as `PUT`.
-   - Include returned headers plus `Content-Type`; no frontend auth token is sent to `uploadUrl`.
+   - Include returned headers and ensure `Content-Type` is set to the selected file type when the response does not provide it.
+   - No frontend app auth token is sent to `uploadUrl`; the presigned URL carries storage authorization.
    - Submit the inspection with `photoObjectKey`.
 5. If no file is selected and legacy `Photo URL (optional)` is filled, submit `photoUrl`.
 
@@ -56,23 +57,35 @@ The inspection submit request currently maps the uploaded object key to `photoOb
 
 - Allowed content types: `image/jpeg`, `image/png`, `image/webp`.
 - Client max size: 5 MB.
-- Friendly errors cover unsupported type, oversized file, storage not configured, upload failure, and inspection submit failure.
+- Friendly errors cover unsupported type, oversized file, `STORAGE_NOT_CONFIGURED`, upload failure, invalid/rejected photo object key, and inspection submit failure.
 
 ## Manager Log Display
 
-- `GET /manager/fire-inspections/logs` is expected to return `photoDisplayUrl` when an uploaded photo exists.
+- `GET /manager/fire-inspections/logs` returns `photoObjectKey`, `photoDisplayUrl`, and `photoUrlExpiresInSeconds` when an uploaded photo exists and storage can create a display URL.
 - Manager logs prefer `photoDisplayUrl` and fall back to legacy `photoUrl`.
+- If storage is unavailable while listing logs, rows can still contain `photoObjectKey` with `photoDisplayUrl: null`; the table then renders the normal no-photo state unless legacy `photoUrl` is present.
 - The logs table renders a `View Photo` link only; it does not render full-size images inside rows.
 
-## Contract Sync Required
+## Manual Smoke Checklist
 
-- Check final backend docs against `fire-inspection-photo-upload-mvp.md` before live smoke.
-- Confirm the final submit field name for uploaded photos. Current scaffold uses `photoObjectKey`.
-- Confirm whether `photoDisplayUrl` is the final manager log response field.
-- Confirm whether presign response `headers` must be forwarded exactly or merged with `Content-Type`.
+Staff:
+
+- Sign in with a valid staff account and approved kiosk/device context.
+- Open `/staff/fire-inspection` and select a due extinguisher.
+- Select a JPG, PNG, or WebP file under 5 MB and confirm preview/file name render.
+- Submit and confirm the browser calls presign, PUT upload, then inspection submit with `photoObjectKey`.
+- Retry with storage disabled or unavailable and confirm the `STORAGE_NOT_CONFIGURED` message is friendly.
+- Submit with legacy `Photo URL (optional)` and no selected file to confirm fallback still works.
+
+Manager:
+
+- Sign in with a manager account and open `/manager/safety/inspections`.
+- Confirm rows with uploaded photos show `View Photo` from `photoDisplayUrl`.
+- Confirm rows with only legacy `photoUrl` still show `View Photo`.
+- Confirm rows without photos render normally.
 
 ## Limitations
 
-- No live upload test was run.
-- The legacy photo URL field remains as an advanced fallback until backend upload is finalized.
+- No live upload test was run in this FE sync pass.
+- The legacy photo URL field remains as an advanced fallback for backward compatibility.
 - Upload object cleanup after failed inspection submit is not implemented in the frontend scaffold.

@@ -34,7 +34,7 @@
 - Delete uses the backend soft-delete endpoint with a confirmation prompt.
 - Inspection Logs supports parking, floor, result, and date range filters with loading, empty, and photo-link states.
 - Inspection Log requests omit empty parking, floor, result, from-date, and to-date filters. Date and result params are only sent when staff or manager has selected a value.
-- Inspection Logs prefer backend `photoDisplayUrl` for uploaded inspection photos and fall back to legacy `photoUrl`.
+- Inspection Logs read final backend `photoObjectKey`, `photoDisplayUrl`, and `photoUrlExpiresInSeconds` fields. They show `View Photo` for `photoDisplayUrl` and fall back to legacy `photoUrl`.
 
 ## Map Pin Behavior
 
@@ -54,7 +54,8 @@
 - Selecting an extinguisher populates the checklist with a status-aware suggested result.
 - Checklist submits result, pressure, seal, location, expiry, optional uploaded photo object key, optional `photoUrl`, note, and next inspection timestamp.
 - Photo picker accepts JPG, PNG, and WebP files up to 5 MB, shows selected file name and preview, and supports remove/replace.
-- When a photo file is selected, submit first requests `POST /staff/fire-inspections/photos/presign-upload`, uploads the file to the returned `uploadUrl` with `fetch`, then submits the inspection with the provisional `photoObjectKey` field.
+- When a photo file is selected, submit first requests `POST /staff/fire-inspections/photos/presign-upload`, uploads the file to the returned `uploadUrl` with `fetch`, then submits the inspection with the final `photoObjectKey` field.
+- Upload PUT forwards backend returned headers and sets `Content-Type` to the selected file type when the response does not provide it. The app auth token is not sent to the presigned upload URL.
 - The legacy `Photo URL (optional)` field remains available as an advanced fallback when no file is selected.
 - Mobile check: the page stacks into a single column on phone widths; due cards remain readable, checklist rows have full-width touch targets, the result selector is clear, optional photo picker, note, and photo URL fields stay below the checklist, and the full-width submit button remains visible at the bottom of the form.
 - On success, the due list is refetched and the checklist is reset.
@@ -77,12 +78,15 @@ Staff:
 
 - `/staff/fire-inspection` loads the due list for the current kiosk context.
 - Submit inspection works with result, checklist flags, optional note, optional uploaded photo or legacy `photoUrl`, and optional next inspection timestamp.
+- Upload photo smoke: select a JPG/PNG/WebP under 5 MB, submit, and confirm presign, PUT upload, and inspection submit with `photoObjectKey`.
+- Manager photo smoke: open `/manager/safety/inspections` and confirm uploaded-photo rows show `View Photo` from `photoDisplayUrl`; legacy `photoUrl` rows still show `View Photo`.
 
 ## Limitations
 
-- Staff inspection photo upload is scaffolded against the expected backend contract, but final field names must be checked against `fire-inspection-photo-upload-mvp.md` before live smoke.
-- The current upload submit mapper uses `photoObjectKey`; update it if the final backend request field differs.
-- The current manager log display expects `photoDisplayUrl`; it falls back to `photoUrl` for legacy rows.
+- Staff inspection photo upload is synced to final backend contract `fire-inspection-photo-upload-mvp.md`.
+- Upload submit uses final backend request field `photoObjectKey`.
+- Manager log display uses final backend response field `photoDisplayUrl` and falls back to `photoUrl` for legacy rows.
+- `STORAGE_NOT_CONFIGURED`, invalid photo object key, upload failure, unsupported file type, oversized file, and inspection submit errors are mapped to staff-friendly messages.
 - Map image upload remains part of Facility Map Setup, not Fire Safety Map.
 - No global polling is used.
 

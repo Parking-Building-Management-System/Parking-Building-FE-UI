@@ -649,11 +649,21 @@ function getSubmitInspectionErrorMessage(error: unknown) {
     const normalized = message.toLowerCase();
 
     if (
+        message.includes('STORAGE_NOT_CONFIGURED') ||
         normalized.includes('storage') &&
         (normalized.includes('not configured') ||
             normalized.includes('unconfigured'))
     ) {
         return 'Photo storage is not configured. Remove the photo or try again after storage is ready.';
+    }
+
+    if (
+        normalized.includes('photoobjectkey') ||
+        (normalized.includes('photo') &&
+            normalized.includes('object') &&
+            normalized.includes('key'))
+    ) {
+        return 'The uploaded photo key was rejected. Upload the photo again or submit without a photo.';
     }
 
     if (
