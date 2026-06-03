@@ -36,11 +36,14 @@ import { getErrorMessage } from '@/features/admin/error-message';
 import { cn } from '@/lib/utils';
 import {
     listDueFireInspectionsApi,
+    presignFireInspectionPhotoUploadApi,
     staffFireInspectionFormSchema,
     staffFireInspectionQueryKeys,
     submitFireInspectionApi,
+    uploadFireInspectionPhotoFile,
     type DueFireInspectionItem,
     type StaffFireInspectionFormValues,
+    type SubmitFireInspectionRequest,
 } from '@/service/staff';
 import {
     fireExtinguisherStatusValues,
@@ -73,6 +76,7 @@ export function StaffFireInspectionPage() {
     const [selectedId, setSelectedId] = useState('');
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [photoPreviewUrl, setPhotoPreviewUrl] = useState('');
+    const [uploadStatus, setUploadStatus] = useState('');
     const [form, setForm] = useState<StaffFireInspectionFormValues>({
         fireExtinguisherId: '',
         result: 'OK',
@@ -96,7 +100,46 @@ export function StaffFireInspectionPage() {
         queryFn: () => listDueFireInspectionsApi(filters),
     });
     const submitMutation = useMutation({
-        mutationFn: submitFireInspectionApi,
+        mutationFn: async ({
+            values,
+            photoFile,
+        }: {
+            values: StaffFireInspectionFormValues;
+            photoFile: File | null;
+        }) => {
+            let photoFields: Pick<
+                SubmitFireInspectionRequest,
+                'photoObjectKey'
+            > = {};
+
+            if (photoFile) {
+                setUploadStatus('Requesting upload URL...');
+                const presign = await presignFireInspectionPhotoUploadApi({
+                    fileName: photoFile.name,
+                    contentType: photoFile.type,
+                });
+
+                setUploadStatus('Uploading photo...');
+                await uploadFireInspectionPhotoFile(photoFile, presign);
+                photoFields = mapInspectionPhotoUploadToSubmitFields(
+                    presign.objectKey,
+                );
+            }
+
+            setUploadStatus('Submitting inspection...');
+            return submitFireInspectionApi({
+                fireExtinguisherId: values.fireExtinguisherId,
+                result: values.result,
+                pressureOk: values.pressureOk,
+                sealOk: values.sealOk,
+                locationOk: values.locationOk,
+                expiryOk: values.expiryOk,
+                ...photoFields,
+                photoUrl: photoFile ? undefined : values.photoUrl || undefined,
+                note: values.note?.trim() || undefined,
+                nextInspectionAt: values.nextInspectionAt || undefined,
+            });
+        },
         onSuccess: async () => {
             toast.success('Fire inspection submitted.');
             setSelectedId('');
@@ -116,8 +159,9 @@ export function StaffFireInspectionPage() {
                 queryKey: ['staff-fire-inspections-due'],
             });
         },
+        onSettled: () => setUploadStatus(''),
         onError: (error) =>
-            toast.error(getErrorMessage(error, 'Failed to submit inspection.')),
+            toast.error(getSubmitInspectionErrorMessage(error)),
     });
 
     const dueItems = dueQuery.data ?? [];
@@ -167,17 +211,16 @@ export function StaffFireInspectionPage() {
             toast.error(parsed.error.issues[0]?.message ?? 'Check form values.');
             return;
         }
-        submitMutation.mutate({
-            fireExtinguisherId: parsed.data.fireExtinguisherId,
-            result: parsed.data.result,
-            pressureOk: parsed.data.pressureOk,
-            sealOk: parsed.data.sealOk,
-            locationOk: parsed.data.locationOk,
-            expiryOk: parsed.data.expiryOk,
-            photoUrl: parsed.data.photoUrl || undefined,
-            note: parsed.data.note?.trim() || undefined,
-            nextInspectionAt: parsed.data.nextInspectionAt || undefined,
-        });
+
+        if (photoFile) {
+            const validationError = validatePhotoFile(photoFile);
+            if (validationError) {
+                toast.error(validationError);
+                return;
+            }
+        }
+
+        submitMutation.mutate({ values: parsed.data, photoFile });
     };
 
     return (
@@ -504,7 +547,7 @@ export function StaffFireInspectionPage() {
                         >
                             <ClipboardCheck data-icon="inline-start" />
                             {submitMutation.isPending
-                                ? 'Submitting...'
+                                ? uploadStatus || 'Submitting...'
                                 : 'Submit Inspection'}
                         </Button>
                     </CardContent>
@@ -594,6 +637,35 @@ function suggestedResult(status: FireExtinguisherStatus): FireInspectionResult {
         return 'NEEDS_REPLACEMENT';
     }
     return 'OK';
+}
+
+function mapInspectionPhotoUploadToSubmitFields(
+    objectKey: string,
+): Pick<SubmitFireInspectionRequest, 'photoObjectKey'> {
+    return { photoObjectKey: objectKey };
+}
+
+function getSubmitInspectionErrorMessage(error: unknown) {
+    const message = getErrorMessage(error, 'Failed to submit inspection.');
+    const normalized = message.toLowerCase();
+
+    if (
+        normalized.includes('storage') &&
+        (normalized.includes('not configured') ||
+            normalized.includes('unconfigured'))
+    ) {
+        return 'Photo storage is not configured. Remove the photo or try again after storage is ready.';
+    }
+
+    if (
+        normalized.includes('cors') ||
+        normalized.includes('upload failed') ||
+        normalized.includes('presign')
+    ) {
+        return message || 'Photo upload failed. Try another photo or submit without a photo.';
+    }
+
+    return message;
 }
 
 function validatePhotoFile(file: File) {
