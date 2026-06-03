@@ -111,6 +111,7 @@ export interface FireExtinguisherInspectionLog {
     sealOk?: boolean | null;
     locationOk?: boolean | null;
     expiryOk?: boolean | null;
+    photoDisplayUrl?: string | null;
     photoUrl?: string | null;
     note?: string | null;
     inspectedAt?: string | null;

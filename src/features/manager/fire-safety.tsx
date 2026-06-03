@@ -85,6 +85,7 @@ import type {
     CreateFireExtinguisherRequest,
     FireExtinguisher,
     FireExtinguisherFormValues,
+    FireExtinguisherInspectionLog,
     FireExtinguisherListParams,
     FireExtinguisherStatus,
     FireExtinguisherType,
@@ -1047,19 +1048,21 @@ export function ManagerFireInspectionLogsPage() {
                                             {log.note || '-'}
                                         </TableCell>
                                         <TableCell>
-                                            {log.photoUrl ? (
+                                            {getInspectionPhotoHref(log) ? (
                                                 <Button
                                                     asChild
                                                     variant="ghost"
                                                     size="sm"
                                                 >
                                                     <a
-                                                        href={log.photoUrl}
+                                                        href={getInspectionPhotoHref(
+                                                            log,
+                                                        )}
                                                         target="_blank"
                                                         rel="noreferrer"
                                                     >
                                                         <ExternalLink data-icon="inline-start" />
-                                                        Open
+                                                        View Photo
                                                     </a>
                                                 </Button>
                                             ) : (
@@ -1743,6 +1746,10 @@ function formatChecklist(values: Array<boolean | null | undefined>) {
     }
     const passed = known.filter(Boolean).length;
     return `${passed}/${known.length} OK`;
+}
+
+function getInspectionPhotoHref(log: FireExtinguisherInspectionLog) {
+    return log.photoDisplayUrl?.trim() || log.photoUrl?.trim() || '';
 }
 
 function isHttpUrl(value: string) {
