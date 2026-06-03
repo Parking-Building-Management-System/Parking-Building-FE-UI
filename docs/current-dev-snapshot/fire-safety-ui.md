@@ -26,10 +26,13 @@
 
 - Overview shows live summary cards, a needs-attention panel, quick actions, and a first-page inventory preview.
 - Fire Extinguishers supports parking, floor, zone, status, type, search, and expiring-days filters.
+- Fire Extinguisher list requests trim `search`; blank search is omitted instead of sent as `search=`.
+- Empty `parkingId`, `floorId`, `zoneId`, `status`, `type`, and invalid or empty `expiringWithinDays` values are omitted from request params. Pagination remains explicit with `page` and `size`.
 - CRUD uses real facility selectors from existing parking, floor, and zone APIs.
 - Mutations invalidate extinguisher list and summary query keys.
 - Delete uses the backend soft-delete endpoint with a confirmation prompt.
 - Inspection Logs supports parking, floor, result, and date range filters with loading, empty, and photo-link states.
+- Inspection Log requests omit empty parking, floor, result, from-date, and to-date filters. Date and result params are only sent when staff or manager has selected a value.
 
 ## Map Pin Behavior
 
@@ -44,14 +47,36 @@
 ## Staff Inspection Checklist
 
 - Staff route reads due items from the staff parking/kiosk context resolved by the backend.
+- Due-list requests omit empty status and floor filters.
 - Due list shows code, type, floor, zone, location, status, expiry, and next inspection.
 - Selecting an extinguisher populates the checklist with a status-aware suggested result.
-- Checklist submits result, pressure, seal, location, expiry, optional photo URL, note, and next inspection timestamp.
+- Checklist submits result, pressure, seal, location, expiry, optional `photoUrl`, note, and next inspection timestamp.
+- Mobile check: the page stacks into a single column on phone widths; due cards remain readable, checklist rows have full-width touch targets, the result selector is clear, optional note/photo URL fields stay below the checklist, and the full-width submit button remains visible at the bottom of the form.
 - On success, the due list is refetched and the checklist is reset.
+
+## Live Smoke Checklist
+
+Requires valid manager and staff sessions against the live backend. If tokens are not available in the browser session, use these as manual steps after signing in.
+
+Manager:
+
+- `/manager/safety` loads summary cards and the recent extinguisher preview.
+- `/manager/safety/fire-extinguishers` loads the list without a 500 from `GET /manager/fire-extinguishers`.
+- Non-blank Fire Extinguisher search sends a trimmed `search` param and filters results.
+- Clearing or entering only whitespace in search omits `search` and still loads the list.
+- `/manager/safety/fire-map` loads floor data and displays fire extinguisher pins when coordinates exist.
+- Coordinate save can be tested by selecting an extinguisher, clicking the map, and saving the preview.
+- `/manager/safety/inspections` loads log rows or the empty state without sending blank filters.
+
+Staff:
+
+- `/staff/fire-inspection` loads the due list for the current kiosk context.
+- Submit inspection works with result, checklist flags, optional note, optional `photoUrl`, and optional next inspection timestamp.
 
 ## Limitations
 
-- No photo upload API is implemented; photo URL is a plain optional string.
+- No staff inspection photo upload API is implemented; `photoUrl` is a plain optional string labeled “Photo URL (optional)”.
+- Future upload support should reuse a documented backend storage contract for staff inspection images before replacing the URL field.
 - Map image upload remains part of Facility Map Setup, not Fire Safety Map.
 - No global polling is used.
 
