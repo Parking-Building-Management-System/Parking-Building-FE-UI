@@ -1,12 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     AlertTriangle,
     CheckCircle2,
     ClipboardCheck,
+    ImageIcon,
     RefreshCw,
+    Trash2,
+    Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -48,6 +51,9 @@ import {
 import { useAuthStore } from '@/stores/use-auth-store';
 
 const ALL = 'ALL';
+const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
+const ACCEPTED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const PHOTO_INPUT_ACCEPT = ACCEPTED_PHOTO_TYPES.join(',');
 
 const statusTone: Record<string, string> = {
     ACTIVE: 'border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-300',
@@ -65,6 +71,8 @@ export function StaffFireInspectionPage() {
     const workContext = useAuthStore((state) => state.user?.workContext);
     const [status, setStatus] = useState(ALL);
     const [selectedId, setSelectedId] = useState('');
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const [photoPreviewUrl, setPhotoPreviewUrl] = useState('');
     const [form, setForm] = useState<StaffFireInspectionFormValues>({
         fireExtinguisherId: '',
         result: 'OK',
@@ -103,6 +111,7 @@ export function StaffFireInspectionPage() {
                 note: '',
                 nextInspectionAt: '',
             });
+            setPhotoFile(null);
             await queryClient.invalidateQueries({
                 queryKey: ['staff-fire-inspections-due'],
             });
@@ -114,14 +123,42 @@ export function StaffFireInspectionPage() {
     const dueItems = dueQuery.data ?? [];
     const selectedItem = dueItems.find((item) => item.id === selectedId);
 
+    useEffect(() => {
+        if (!photoFile) {
+            setPhotoPreviewUrl('');
+            return;
+        }
+
+        const previewUrl = URL.createObjectURL(photoFile);
+        setPhotoPreviewUrl(previewUrl);
+
+        return () => URL.revokeObjectURL(previewUrl);
+    }, [photoFile]);
+
     const selectItem = (item: DueFireInspectionItem) => {
         setSelectedId(item.id);
+        setPhotoFile(null);
         setForm((current) => ({
             ...current,
             fireExtinguisherId: item.id,
             result: suggestedResult(item.status),
             expiryOk: item.status !== 'EXPIRED',
         }));
+    };
+
+    const handlePhotoChange = (file?: File) => {
+        if (!file) {
+            return;
+        }
+
+        const validationError = validatePhotoFile(file);
+        if (validationError) {
+            toast.error(validationError);
+            setPhotoFile(null);
+            return;
+        }
+
+        setPhotoFile(file);
     };
 
     const submit = () => {
@@ -358,6 +395,66 @@ export function StaffFireInspectionPage() {
                             />
                         </div>
 
+                        <div className="grid gap-2">
+                            <Label htmlFor="inspection-photo">
+                                Inspection photo (optional)
+                            </Label>
+                            <Input
+                                id="inspection-photo"
+                                type="file"
+                                accept={PHOTO_INPUT_ACCEPT}
+                                disabled={
+                                    !selectedItem || submitMutation.isPending
+                                }
+                                onChange={(event) => {
+                                    handlePhotoChange(event.target.files?.[0]);
+                                    event.target.value = '';
+                                }}
+                            />
+                            <p className="text-muted-foreground text-xs">
+                                JPG, PNG, or WebP. Max 5 MB.
+                            </p>
+                            {photoFile ? (
+                                <div className="flex items-center gap-3 rounded-lg border p-3">
+                                    {photoPreviewUrl ? (
+                                        <div
+                                            aria-label="Selected inspection photo preview"
+                                            className="size-16 shrink-0 rounded-md border bg-cover bg-center"
+                                            style={{
+                                                backgroundImage: `url(${photoPreviewUrl})`,
+                                            }}
+                                        />
+                                    ) : (
+                                        <div className="bg-muted flex size-16 shrink-0 items-center justify-center rounded-md border">
+                                            <ImageIcon className="text-muted-foreground size-5" />
+                                        </div>
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-medium">
+                                            {photoFile.name}
+                                        </p>
+                                        <p className="text-muted-foreground text-xs">
+                                            {formatFileSize(photoFile.size)}
+                                        </p>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        disabled={submitMutation.isPending}
+                                        onClick={() => setPhotoFile(null)}
+                                    >
+                                        <Trash2 className="size-4" />
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="text-muted-foreground flex items-center gap-2 rounded-lg border border-dashed p-3 text-sm">
+                                    <Upload className="size-4" />
+                                    No inspection photo selected.
+                                </div>
+                            )}
+                        </div>
+
                         <Label className="grid gap-2">
                             <span>Photo URL (optional)</span>
                             <Input
@@ -497,6 +594,26 @@ function suggestedResult(status: FireExtinguisherStatus): FireInspectionResult {
         return 'NEEDS_REPLACEMENT';
     }
     return 'OK';
+}
+
+function validatePhotoFile(file: File) {
+    if (!ACCEPTED_PHOTO_TYPES.includes(file.type)) {
+        return 'Upload a JPG, PNG, or WebP inspection photo.';
+    }
+
+    if (file.size > MAX_PHOTO_SIZE_BYTES) {
+        return 'Inspection photo must be 5 MB or smaller.';
+    }
+
+    return '';
+}
+
+function formatFileSize(bytes: number) {
+    if (bytes < 1024 * 1024) {
+        return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    }
+
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function formatDate(value?: string | null) {
