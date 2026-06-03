@@ -36,9 +36,23 @@ export interface SubmitFireInspectionRequest {
     sealOk: boolean;
     locationOk: boolean;
     expiryOk: boolean;
+    photoObjectKey?: string;
     photoUrl?: string;
     note?: string;
     nextInspectionAt?: string;
+}
+
+export interface FireInspectionPhotoPresignUploadRequest {
+    fileName: string;
+    contentType: string;
+}
+
+export interface FireInspectionPhotoPresignUploadResponse {
+    uploadUrl: string;
+    objectKey: string;
+    method: 'PUT' | string;
+    headers?: Record<string, string>;
+    expiresInSeconds?: number;
 }
 
 export const staffFireInspectionFormSchema = z.object({

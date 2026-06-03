@@ -3,6 +3,8 @@ import type { AxiosResponse } from 'axios';
 import apiClient, { ApiResponse } from '@/lib/api/axios-config';
 import type {
     DueFireInspectionItem,
+    FireInspectionPhotoPresignUploadRequest,
+    FireInspectionPhotoPresignUploadResponse,
     StaffFireInspectionDueParams,
     SubmitFireInspectionRequest,
 } from '@/service/staff/fire-inspection-type';
@@ -53,4 +55,43 @@ export const submitFireInspectionApi = async (
     >(`${STAFF_ENDPOINT}/fire-inspections`, data);
 
     return getApiResult(response);
+};
+
+export const presignFireInspectionPhotoUploadApi = async (
+    data: FireInspectionPhotoPresignUploadRequest,
+) => {
+    const response = await apiClient.post<
+        ApiResponse<FireInspectionPhotoPresignUploadResponse>,
+        AxiosResponse<ApiResponse<FireInspectionPhotoPresignUploadResponse>>,
+        FireInspectionPhotoPresignUploadRequest
+    >(`${STAFF_ENDPOINT}/fire-inspections/photos/presign-upload`, data);
+
+    return getApiResult(response);
+};
+
+export const uploadFireInspectionPhotoFile = async (
+    file: File,
+    presign: FireInspectionPhotoPresignUploadResponse,
+) => {
+    let uploadResponse: Response;
+
+    try {
+        uploadResponse = await fetch(presign.uploadUrl, {
+            method: presign.method || 'PUT',
+            headers: {
+                ...presign.headers,
+                'Content-Type':
+                    presign.headers?.['Content-Type'] ?? file.type,
+            },
+            body: file,
+        });
+    } catch {
+        throw new Error(
+            'Photo upload failed. Storage CORS or network access may need configuration.',
+        );
+    }
+
+    if (!uploadResponse.ok) {
+        throw new Error(`Photo upload failed. HTTP ${uploadResponse.status}.`);
+    }
 };
