@@ -20,6 +20,7 @@
 - `GET /manager/floors/{floorId}/fire-safety-map`
 - `GET /manager/fire-inspections/logs`
 - `GET /staff/fire-inspections/due`
+- `POST /staff/fire-inspections/photos/presign-upload`
 - `POST /staff/fire-inspections`
 
 ## Manager UI States
@@ -33,6 +34,7 @@
 - Delete uses the backend soft-delete endpoint with a confirmation prompt.
 - Inspection Logs supports parking, floor, result, and date range filters with loading, empty, and photo-link states.
 - Inspection Log requests omit empty parking, floor, result, from-date, and to-date filters. Date and result params are only sent when staff or manager has selected a value.
+- Inspection Logs prefer backend `photoDisplayUrl` for uploaded inspection photos and fall back to legacy `photoUrl`.
 
 ## Map Pin Behavior
 
@@ -50,8 +52,11 @@
 - Due-list requests omit empty status and floor filters.
 - Due list shows code, type, floor, zone, location, status, expiry, and next inspection.
 - Selecting an extinguisher populates the checklist with a status-aware suggested result.
-- Checklist submits result, pressure, seal, location, expiry, optional `photoUrl`, note, and next inspection timestamp.
-- Mobile check: the page stacks into a single column on phone widths; due cards remain readable, checklist rows have full-width touch targets, the result selector is clear, optional note/photo URL fields stay below the checklist, and the full-width submit button remains visible at the bottom of the form.
+- Checklist submits result, pressure, seal, location, expiry, optional uploaded photo object key, optional `photoUrl`, note, and next inspection timestamp.
+- Photo picker accepts JPG, PNG, and WebP files up to 5 MB, shows selected file name and preview, and supports remove/replace.
+- When a photo file is selected, submit first requests `POST /staff/fire-inspections/photos/presign-upload`, uploads the file to the returned `uploadUrl` with `fetch`, then submits the inspection with the provisional `photoObjectKey` field.
+- The legacy `Photo URL (optional)` field remains available as an advanced fallback when no file is selected.
+- Mobile check: the page stacks into a single column on phone widths; due cards remain readable, checklist rows have full-width touch targets, the result selector is clear, optional photo picker, note, and photo URL fields stay below the checklist, and the full-width submit button remains visible at the bottom of the form.
 - On success, the due list is refetched and the checklist is reset.
 
 ## Live Smoke Checklist
@@ -71,12 +76,13 @@ Manager:
 Staff:
 
 - `/staff/fire-inspection` loads the due list for the current kiosk context.
-- Submit inspection works with result, checklist flags, optional note, optional `photoUrl`, and optional next inspection timestamp.
+- Submit inspection works with result, checklist flags, optional note, optional uploaded photo or legacy `photoUrl`, and optional next inspection timestamp.
 
 ## Limitations
 
-- No staff inspection photo upload API is implemented; `photoUrl` is a plain optional string labeled “Photo URL (optional)”.
-- Future upload support should reuse a documented backend storage contract for staff inspection images before replacing the URL field.
+- Staff inspection photo upload is scaffolded against the expected backend contract, but final field names must be checked against `fire-inspection-photo-upload-mvp.md` before live smoke.
+- The current upload submit mapper uses `photoObjectKey`; update it if the final backend request field differs.
+- The current manager log display expects `photoDisplayUrl`; it falls back to `photoUrl` for legacy rows.
 - Map image upload remains part of Facility Map Setup, not Fire Safety Map.
 - No global polling is used.
 
@@ -94,3 +100,4 @@ Staff:
 - `src/service/manager/fire-safety-type.ts`
 - `src/service/staff/fire-inspection-api.ts`
 - `src/service/staff/fire-inspection-type.ts`
+- `docs/current-dev-snapshot/fire-inspection-photo-upload-ui.md`
