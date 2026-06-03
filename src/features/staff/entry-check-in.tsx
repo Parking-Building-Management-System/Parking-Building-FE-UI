@@ -193,7 +193,9 @@ export function StaffEntryCheckIn() {
     });
 
     const availableCardsQuery = useQuery({
-        queryKey: staffQueryKeys.availableRfidCards(deferredCardSearch),
+        queryKey: staffQueryKeys.availableRfidCards(
+            deferredCardSearch.trim(),
+        ),
         queryFn: () => listAvailableRfidCardsApi(deferredCardSearch, 50),
     });
 

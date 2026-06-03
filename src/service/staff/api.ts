@@ -67,9 +67,15 @@ export const listAvailableRfidCardsApi = async (
     search = '',
     limit = 50,
 ) => {
+    const normalizedSearch = search.trim();
     const response = await apiClient.get<ApiResponse<AvailableRfidCard[]>>(
         `${STAFF_ENDPOINT}/rfid-cards/available`,
-        { params: { search: search.trim() || undefined, limit } },
+        {
+            params: {
+                ...(normalizedSearch ? { search: normalizedSearch } : {}),
+                limit,
+            },
+        },
     );
 
     return getApiResult(response);
