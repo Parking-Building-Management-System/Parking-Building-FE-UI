@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -16,6 +16,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -49,6 +50,7 @@ import {
     type ZoneRequest,
     type ZoneResponse,
     type ZoneStatus,
+    zoneRequestSchema,
 } from '@/service/manager/facility-type';
 import {
     EmptyState,
@@ -60,6 +62,14 @@ import {
 interface ZoneDialogState {
     open: boolean;
     zone?: ZoneResponse;
+}
+
+interface ZoneFormState {
+    code: string;
+    name: string;
+    vehicleTypeCode: string;
+    capacity: string;
+    status: ZoneStatus;
 }
 
 export function ZoneManagement() {
@@ -116,8 +126,9 @@ export function ZoneManagement() {
     const parkings = parkingsQuery.data ?? [];
     const floors = floorsQuery.data ?? [];
     const zones = zonesQuery.data ?? [];
-    const vehicleTypes = (vehicleTypesQuery.data ?? []).filter(
-        (type) => type.active,
+    const vehicleTypes = useMemo(
+        () => (vehicleTypesQuery.data ?? []).filter((type) => type.active),
+        [vehicleTypesQuery.data],
     );
 
     return (
@@ -236,16 +247,17 @@ export function ZoneManagement() {
                                             </TableCell>
                                         </TableRow>
                                     ))}
-                                {!zonesQuery.isLoading && zones.length === 0 && (
-                                    <TableRow>
-                                        <TableCell
-                                            colSpan={6}
-                                            className="text-muted-foreground h-28 text-center"
-                                        >
-                                            No zones found.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
+                                {!zonesQuery.isLoading &&
+                                    zones.length === 0 && (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={6}
+                                                className="text-muted-foreground h-28 text-center"
+                                            >
+                                                No zones found.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
                             </TableBody>
                         </Table>
                     )}
@@ -259,6 +271,10 @@ export function ZoneManagement() {
                 parkingId={parkingId}
                 zone={dialog.zone}
                 vehicleTypes={vehicleTypes}
+                vehicleTypesError={
+                    vehicleTypesQuery.isError ? vehicleTypesQuery.error : null
+                }
+                vehicleTypesLoading={vehicleTypesQuery.isLoading}
                 onOpenChange={(open) =>
                     setDialog((current) => ({
                         ...current,
@@ -308,6 +324,8 @@ function ZoneDialog({
     parkingId,
     zone,
     vehicleTypes,
+    vehicleTypesError,
+    vehicleTypesLoading,
     onOpenChange,
 }: {
     open: boolean;
@@ -315,21 +333,28 @@ function ZoneDialog({
     parkingId: string;
     zone?: ZoneResponse;
     vehicleTypes: GlobalVehicleTypeResponse[];
+    vehicleTypesError: unknown;
+    vehicleTypesLoading: boolean;
     onOpenChange: (open: boolean) => void;
 }) {
     const queryClient = useQueryClient();
-    const [form, setForm] = useState<ZoneRequest>({
+    const [form, setForm] = useState<ZoneFormState>({
         code: zone?.code ?? '',
         name: zone?.name ?? '',
-        vehicleTypeCode:
-            zone?.vehicleTypeCode ?? vehicleTypes[0]?.code ?? '',
-        capacity: zone?.capacity ?? 0,
+        vehicleTypeCode: zone?.vehicleTypeCode ?? vehicleTypes[0]?.code ?? '',
+        capacity:
+            typeof zone?.capacity === 'number' ? String(zone.capacity) : '',
         status: zone?.status ?? 'ACTIVE',
     });
+    const [validationErrors, setValidationErrors] = useState<
+        Partial<Record<keyof ZoneRequest, string>>
+    >({});
 
     const mutation = useMutation({
-        mutationFn: () =>
-            zone ? updateZoneApi(zone.id, form) : createZoneApi(floorId, form),
+        mutationFn: (payload: ZoneRequest) =>
+            zone
+                ? updateZoneApi(zone.id, payload)
+                : createZoneApi(floorId, payload),
         onSuccess: (result) => {
             toast.success(zone ? 'Zone updated.' : 'Zone created.');
             queryClient.invalidateQueries({
@@ -350,6 +375,47 @@ function ZoneDialog({
         },
     });
 
+    const vehicleTypeLoadError = vehicleTypesError
+        ? getErrorMessage(vehicleTypesError, 'Failed to load vehicle types.')
+        : '';
+    const hasVehicleTypeOptions = vehicleTypes.length > 0;
+    const selectedVehicleTypeCode =
+        form.vehicleTypeCode || vehicleTypes[0]?.code || '';
+    const canSave =
+        !mutation.isPending &&
+        !!floorId &&
+        !!parkingId &&
+        !vehicleTypesLoading &&
+        !vehicleTypeLoadError &&
+        hasVehicleTypeOptions;
+
+    const submit = () => {
+        const payload: ZoneRequest = {
+            code: form.code.trim(),
+            name: form.name.trim(),
+            vehicleTypeCode: selectedVehicleTypeCode.trim(),
+            capacity: Number(form.capacity),
+            status: form.status,
+        };
+        const parsed = zoneRequestSchema.safeParse(payload);
+
+        if (!parsed.success) {
+            const errors: Partial<Record<keyof ZoneRequest, string>> = {};
+            parsed.error.issues.forEach((issue) => {
+                const field = issue.path[0] as keyof ZoneRequest | undefined;
+
+                if (field && !errors[field]) {
+                    errors[field] = issue.message;
+                }
+            });
+            setValidationErrors(errors);
+            return;
+        }
+
+        setValidationErrors({});
+        mutation.mutate(parsed.data);
+    };
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
@@ -366,95 +432,137 @@ function ZoneDialog({
                     className="space-y-4"
                     onSubmit={(event) => {
                         event.preventDefault();
-                        mutation.mutate();
+                        submit();
                     }}
                 >
-                    <Input
-                        placeholder="Code"
-                        value={form.code}
-                        disabled={mutation.isPending}
-                        onChange={(event) =>
-                            setForm((current) => ({
-                                ...current,
-                                code: event.target.value,
-                            }))
-                        }
-                    />
-                    <Input
-                        placeholder="Name"
-                        value={form.name}
-                        disabled={mutation.isPending}
-                        onChange={(event) =>
-                            setForm((current) => ({
-                                ...current,
-                                name: event.target.value,
-                            }))
-                        }
-                    />
-                    <Select
-                        value={form.vehicleTypeCode}
-                        disabled={mutation.isPending}
-                        onValueChange={(value) =>
-                            setForm((current) => ({
-                                ...current,
-                                vehicleTypeCode: value,
-                            }))
-                        }
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Vehicle type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {vehicleTypes.map((type) => (
-                                <SelectItem key={type.code} value={type.code}>
-                                    {type.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Input
-                        type="number"
-                        placeholder="Capacity"
-                        value={form.capacity}
-                        disabled={mutation.isPending}
-                        onChange={(event) =>
-                            setForm((current) => ({
-                                ...current,
-                                capacity: Number(event.target.value),
-                            }))
-                        }
-                    />
-                    <Select
-                        value={form.status ?? 'ACTIVE'}
-                        disabled={mutation.isPending}
-                        onValueChange={(value) =>
-                            setForm((current) => ({
-                                ...current,
-                                status: value as ZoneStatus,
-                            }))
-                        }
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {zoneStatusValues.map((status) => (
-                                <SelectItem key={status} value={status}>
-                                    {status}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <DialogFooter>
-                        <Button
-                            type="submit"
-                            disabled={
-                                mutation.isPending ||
-                                !floorId ||
-                                !parkingId ||
-                                !form.vehicleTypeCode
+                    <div className="space-y-2">
+                        <Label htmlFor="zone-code">Code</Label>
+                        <Input
+                            id="zone-code"
+                            placeholder="Code"
+                            value={form.code}
+                            disabled={mutation.isPending}
+                            onChange={(event) =>
+                                setForm((current) => ({
+                                    ...current,
+                                    code: event.target.value,
+                                }))
+                            }
+                        />
+                        <FieldError message={validationErrors.code} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="zone-name">Name</Label>
+                        <Input
+                            id="zone-name"
+                            placeholder="Name"
+                            value={form.name}
+                            disabled={mutation.isPending}
+                            onChange={(event) =>
+                                setForm((current) => ({
+                                    ...current,
+                                    name: event.target.value,
+                                }))
+                            }
+                        />
+                        <FieldError message={validationErrors.name} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Vehicle Type</Label>
+                        {vehicleTypeLoadError ? (
+                            <p className="text-destructive text-sm">
+                                {vehicleTypeLoadError}
+                            </p>
+                        ) : !vehicleTypesLoading && !hasVehicleTypeOptions ? (
+                            <p className="text-muted-foreground rounded-md border p-3 text-sm">
+                                No active vehicle types. Please ask System Admin
+                                to configure master data.
+                            </p>
+                        ) : (
+                            <Select
+                                value={selectedVehicleTypeCode}
+                                disabled={
+                                    mutation.isPending || vehicleTypesLoading
+                                }
+                                onValueChange={(value) =>
+                                    setForm((current) => ({
+                                        ...current,
+                                        vehicleTypeCode: value,
+                                    }))
+                                }
+                            >
+                                <SelectTrigger>
+                                    <SelectValue
+                                        placeholder={
+                                            vehicleTypesLoading
+                                                ? 'Loading vehicle types...'
+                                                : 'Vehicle type'
+                                        }
+                                    />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {vehicleTypes.map((type) => (
+                                        <SelectItem
+                                            key={type.id}
+                                            value={type.code}
+                                        >
+                                            {type.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                        <FieldError
+                            message={validationErrors.vehicleTypeCode}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="zone-capacity">
+                            Capacity (0 allowed)
+                        </Label>
+                        <Input
+                            id="zone-capacity"
+                            type="number"
+                            min={0}
+                            step={1}
+                            placeholder="Capacity"
+                            value={form.capacity}
+                            disabled={mutation.isPending}
+                            onChange={(event) =>
+                                setForm((current) => ({
+                                    ...current,
+                                    capacity: event.target.value,
+                                }))
+                            }
+                        />
+                        <FieldError message={validationErrors.capacity} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Status</Label>
+                        <Select
+                            value={form.status ?? 'ACTIVE'}
+                            disabled={mutation.isPending}
+                            onValueChange={(value) =>
+                                setForm((current) => ({
+                                    ...current,
+                                    status: value as ZoneStatus,
+                                }))
                             }
                         >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {zoneStatusValues.map((status) => (
+                                    <SelectItem key={status} value={status}>
+                                        {status}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <DialogFooter>
+                        <Button type="submit" disabled={!canSave}>
                             {mutation.isPending ? 'Saving...' : 'Save'}
                         </Button>
                     </DialogFooter>
@@ -462,4 +570,12 @@ function ZoneDialog({
             </DialogContent>
         </Dialog>
     );
+}
+
+function FieldError({ message }: { message?: string }) {
+    if (!message) {
+        return null;
+    }
+
+    return <p className="text-destructive text-sm">{message}</p>;
 }
