@@ -63,6 +63,58 @@ const parseExportFilename = (contentDisposition?: string) => {
     return decodeURIComponent(rawFilename.trim());
 };
 
+const normalizeOptionalString = (value: unknown) =>
+    typeof value === 'string' && value.trim().length > 0
+        ? value.trim()
+        : undefined;
+
+const normalizeSlotSearchParams = (params: SlotSearchParams) => {
+    const slotCode = normalizeOptionalString(params.slotCode);
+
+    return {
+        parkingId: normalizeOptionalString(params.parkingId),
+        floorId: normalizeOptionalString(params.floorId),
+        zoneId: normalizeOptionalString(params.zoneId),
+        status: params.status,
+        slotCode,
+        exact: slotCode ? params.exact || undefined : undefined,
+        page: params.page,
+        size: params.size,
+    };
+};
+
+const normalizeVehicleType = (
+    item: GlobalVehicleTypeResponse & Record<string, unknown>,
+): GlobalVehicleTypeResponse | null => {
+    const id = normalizeOptionalString(item.id);
+    const code = normalizeOptionalString(item.code);
+    const name =
+        normalizeOptionalString(item.name) ??
+        normalizeOptionalString(item.displayName) ??
+        code;
+
+    if (!id || !code || !name) {
+        return null;
+    }
+
+    const status = normalizeOptionalString(item.status);
+    const active =
+        typeof item.active === 'boolean'
+            ? item.active
+            : status
+              ? status.toUpperCase() === 'ACTIVE'
+              : true;
+
+    return {
+        id,
+        code,
+        name,
+        active,
+        status,
+        createdAt: normalizeOptionalString(item.createdAt),
+    };
+};
+
 export const managerFacilityQueryKeys = {
     parkings: ['manager', 'facility', 'parkings'] as const,
     parking: (parkingId: string) =>
@@ -87,6 +139,8 @@ export const managerFacilityQueryKeys = {
             'facility',
             'slots',
             'list',
+            params.parkingId ?? 'ALL_PARKINGS',
+            params.floorId ?? 'ALL_FLOORS',
             params.zoneId ?? 'ALL_ZONES',
             params.status ?? 'ALL_STATUSES',
             params.slotCode ?? '',
@@ -281,7 +335,7 @@ export const deleteZoneApi = async (id: string) => {
 export const listSlotsApi = async (params: SlotSearchParams) => {
     const response = await apiClient.get<ApiResponse<SlotPageResponse>>(
         `${MANAGER_ENDPOINT}/slots`,
-        { params },
+        { params: normalizeSlotSearchParams(params) },
     );
 
     return getApiResult(response);
@@ -428,11 +482,17 @@ export const exportSlotsApi = async (): Promise<SlotExportFile> => {
 };
 
 export const listGlobalVehicleTypesApi = async () => {
-    const response = await apiClient.get<
-        ApiResponse<GlobalVehicleTypeResponse[]>
-    >(`${MANAGER_ENDPOINT}/master-data/vehicle-types`);
+    const response = await apiClient.get<ApiResponse<unknown[]>>(
+        `${MANAGER_ENDPOINT}/master-data/vehicle-types`,
+    );
 
-    return getApiResult(response);
+    return getApiResult(response)
+        .map((item) =>
+            normalizeVehicleType(
+                item as GlobalVehicleTypeResponse & Record<string, unknown>,
+            ),
+        )
+        .filter((item): item is GlobalVehicleTypeResponse => item !== null);
 };
 
 export const listRfidCardsApi = async (params: RfidCardListParams) => {

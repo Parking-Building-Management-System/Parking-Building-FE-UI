@@ -210,6 +210,8 @@ export interface SlotRequest {
 }
 
 export interface SlotSearchParams {
+    parkingId?: string;
+    floorId?: string;
     zoneId?: string;
     status?: SlotStatus;
     slotCode?: string;
@@ -264,6 +266,7 @@ export interface GlobalVehicleTypeResponse {
     name: string;
     code: string;
     active: boolean;
+    status?: string;
     createdAt?: string;
 }
 
@@ -301,6 +304,8 @@ export const createZoneFormSchema = zoneRequestSchema.extend({
 });
 
 export const slotSearchParamsSchema = z.object({
+    parkingId: z.string().trim().optional(),
+    floorId: z.string().trim().optional(),
     zoneId: z.string().trim().optional(),
     status: slotStatusSchema.optional(),
     slotCode: z.string().trim().optional(),

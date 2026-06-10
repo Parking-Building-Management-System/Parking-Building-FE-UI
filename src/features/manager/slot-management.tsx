@@ -116,24 +116,34 @@ export function SlotManagement() {
         queryFn: () => listFloorsApi(activeParkingId),
         enabled: !!activeParkingId,
     });
-    const activeFloorId =
-        floorId === ALL_FLOORS ? floorsQuery.data?.[0]?.id || '' : floorId;
+    const selectedFloorId = floorId === ALL_FLOORS ? '' : floorId;
     const zonesQuery = useQuery({
-        queryKey: managerFacilityQueryKeys.zones(activeFloorId),
-        queryFn: () => listZonesApi(activeFloorId),
-        enabled: !!activeFloorId,
+        queryKey: managerFacilityQueryKeys.zones(selectedFloorId),
+        queryFn: () => listZonesApi(selectedFloorId),
+        enabled: !!selectedFloorId,
     });
 
     const queryParams = useMemo<SlotSearchParams>(
         () => ({
+            parkingId: activeParkingId || undefined,
+            floorId: selectedFloorId || undefined,
             page,
             size,
             zoneId: zoneId === ALL_ZONES ? undefined : zoneId,
             status: status === ALL_STATUSES ? undefined : status,
             slotCode: deferredSlotCode.trim() || undefined,
-            exact,
+            exact: deferredSlotCode.trim() ? exact : undefined,
         }),
-        [deferredSlotCode, exact, page, size, status, zoneId],
+        [
+            activeParkingId,
+            deferredSlotCode,
+            exact,
+            page,
+            selectedFloorId,
+            size,
+            status,
+            zoneId,
+        ],
     );
 
     const {
@@ -265,6 +275,7 @@ export function SlotManagement() {
                         value={activeParkingId}
                         onValueChange={(value) => {
                             setPage(DEFAULT_PAGE);
+                            setSelectedIds([]);
                             setParkingId(value);
                             setFloorId(ALL_FLOORS);
                             setZoneId(ALL_ZONES);
@@ -283,9 +294,10 @@ export function SlotManagement() {
                     </Select>
                     <Select
                         value={floorId}
-                        disabled={!activeParkingId}
+                        disabled={!activeParkingId || floorsQuery.isLoading}
                         onValueChange={(value) => {
                             setPage(DEFAULT_PAGE);
+                            setSelectedIds([]);
                             setFloorId(value);
                             setZoneId(ALL_ZONES);
                         }}
@@ -306,9 +318,10 @@ export function SlotManagement() {
                     </Select>
                     <Select
                         value={zoneId}
-                        disabled={!activeFloorId}
+                        disabled={!selectedFloorId || zonesQuery.isLoading}
                         onValueChange={(value) => {
                             setPage(DEFAULT_PAGE);
+                            setSelectedIds([]);
                             setZoneId(value);
                         }}
                     >
@@ -328,6 +341,7 @@ export function SlotManagement() {
                         value={status}
                         onValueChange={(value) => {
                             setPage(DEFAULT_PAGE);
+                            setSelectedIds([]);
                             setStatus(value as SlotStatusFilter);
                         }}
                     >
@@ -353,6 +367,7 @@ export function SlotManagement() {
                             value={slotCode}
                             onChange={(event) => {
                                 setPage(DEFAULT_PAGE);
+                                setSelectedIds([]);
                                 setSlotCode(event.target.value);
                             }}
                         />
@@ -362,6 +377,7 @@ export function SlotManagement() {
                             checked={exact}
                             onCheckedChange={(checked) => {
                                 setPage(DEFAULT_PAGE);
+                                setSelectedIds([]);
                                 setExact(checked === true);
                             }}
                             aria-label="Exact slot code match"
@@ -376,9 +392,9 @@ export function SlotManagement() {
                     <div>
                         <CardTitle>Slots</CardTitle>
                         <p className="text-muted-foreground mt-1 text-sm">
-                            {selectedIds.length.toLocaleString()} selected -
+                            {selectedIds.length.toLocaleString()} selected ·{' '}
                             {totalElements.toLocaleString()} total
-                            {isFetching && !isLoading ? ' - Refreshing' : ''}
+                            {isFetching && !isLoading ? ' · Refreshing' : ''}
                         </p>
                     </div>
                     <DropdownMenu>
@@ -693,7 +709,9 @@ function SlotDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>{slot ? 'Edit slot' : 'Create slot'}</DialogTitle>
+                    <DialogTitle>
+                        {slot ? 'Edit slot' : 'Create slot'}
+                    </DialogTitle>
                     <DialogDescription>
                         Create uses the selected zone. Slot updates keep the
                         existing backend parent relationships.
@@ -753,10 +771,7 @@ function SlotDialog({
                             </SelectContent>
                         </Select>
                         <DialogFooter>
-                            <Button
-                                type="submit"
-                                disabled={mutation.isPending}
-                            >
+                            <Button type="submit" disabled={mutation.isPending}>
                                 {mutation.isPending ? 'Saving...' : 'Save'}
                             </Button>
                         </DialogFooter>
