@@ -1,6 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { redirect } from 'next/navigation';
 
 export default function ManagerInvoicesPage() {
-    return <MockModulePage {...mockModulePages['/manager/pricing/invoices']} />;
+    redirect('/manager/pricing');
 }

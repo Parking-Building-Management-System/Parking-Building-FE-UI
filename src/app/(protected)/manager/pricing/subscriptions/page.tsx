@@ -1,10 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { redirect } from 'next/navigation';
 
 export default function ManagerSubscriptionsPage() {
-    return (
-        <MockModulePage
-            {...mockModulePages['/manager/pricing/subscriptions']}
-        />
-    );
+    redirect('/manager/pricing');
 }

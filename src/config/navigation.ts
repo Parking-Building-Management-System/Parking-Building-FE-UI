@@ -215,24 +215,12 @@ export const navigationGroups: NavigationGroup[] = [
                 roles: ['PARKING_MANAGER'],
                 children: [
                     {
-                        title: 'Time Rules',
-                        href: '/manager/pricing/time-rules',
+                        title: 'Overview',
+                        href: '/manager/pricing',
                     },
                     {
-                        title: 'Pricing Matrix',
-                        href: '/manager/pricing/matrix',
-                    },
-                    {
-                        title: 'Subscriptions',
-                        href: '/manager/pricing/subscriptions',
-                    },
-                    {
-                        title: 'Invoices',
-                        href: '/manager/pricing/invoices',
-                    },
-                    {
-                        title: 'Debt & Reminders',
-                        href: '/manager/pricing/debts',
+                        title: 'Pricing Config',
+                        href: '/manager/pricing/config',
                     },
                 ],
             },

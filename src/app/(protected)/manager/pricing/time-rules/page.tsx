@@ -1,5 +1,5 @@
-import { PricingTimeRules } from '@/features/manager/pricing-time-rules';
+import { redirect } from 'next/navigation';
 
 export default function TimeRulesPage() {
-    return <PricingTimeRules />;
+    redirect('/manager/pricing/config');
 }

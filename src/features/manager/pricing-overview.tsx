@@ -1,14 +1,13 @@
 'use client';
 
-import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import {
     Calculator,
     CreditCard,
-    Grid3X3,
     ParkingCircle,
-    Plus,
+    SlidersHorizontal,
 } from 'lucide-react';
+import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,7 +32,9 @@ export function PricingOverview() {
     const activeRules = rules.filter((rule) => rule.status === 'ACTIVE');
     const inactiveRules = rules.filter((rule) => rule.status === 'INACTIVE');
     const coveredVehicles = new Set(
-        rules.map((rule) => rule.vehicleTypeId ?? rule.vehicleTypeCode).filter(Boolean),
+        rules
+            .map((rule) => rule.vehicleTypeId ?? rule.vehicleTypeCode)
+            .filter(Boolean),
     ).size;
     const parkingOverrides = rules.filter((rule) => !!rule.parkingId).length;
 
@@ -48,22 +49,15 @@ export function PricingOverview() {
                         Pricing & Billing
                     </h1>
                     <p className="text-muted-foreground mt-2 max-w-2xl text-sm">
-                        Configure pricing rules used by driver checkout quotes.
-                        Payments, invoices, subscriptions, and debts remain
-                        pending for later flows.
+                        Pricing rules are used by Driver PWA checkout quotes,
+                        PayOS payment, and Staff Exit Gate decisions.
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                     <Button asChild>
-                        <Link href="/manager/pricing/time-rules">
-                            <Plus data-icon="inline-start" />
-                            Create Time Rule
-                        </Link>
-                    </Button>
-                    <Button asChild variant="outline">
-                        <Link href="/manager/pricing/matrix">
-                            <Grid3X3 data-icon="inline-start" />
-                            Pricing Matrix
+                        <Link href="/manager/pricing/config">
+                            <SlidersHorizontal data-icon="inline-start" />
+                            Pricing Config
                         </Link>
                     </Button>
                 </div>
@@ -144,17 +138,18 @@ export function PricingOverview() {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Flow 2A Scope</CardTitle>
+                        <CardTitle>Demo Flow</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3 text-sm">
                         <p className="text-muted-foreground">
-                            This slice wires rule setup and PWA quote display.
-                            Online payment, VietQR, webhook handling, invoices,
-                            debts, and Staff Exit Gate are intentionally pending.
+                            Manager configures a pricing rule, Driver PWA uses
+                            it for checkout quote and payment, then Staff Exit
+                            Gate uses payment state to allow exit, collect cash,
+                            or apply surcharge.
                         </p>
                         <Button asChild className="w-full">
-                            <Link href="/manager/pricing/time-rules">
-                                Manage Time Rules
+                            <Link href="/manager/pricing/config">
+                                Open Pricing Config
                             </Link>
                         </Button>
                     </CardContent>

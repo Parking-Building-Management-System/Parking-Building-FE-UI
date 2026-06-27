@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -45,6 +46,15 @@ export function PricingPreviewCalculator({
         () => rules.find((rule) => rule.id === ruleId),
         [ruleId, rules],
     );
+    const selectedVehicleTypeId = selectedRule
+        ? getRuleVehicleTypeId(selectedRule, vehicleTypes)
+        : '';
+    const isPreviewReady =
+        Boolean(selectedRule) &&
+        Boolean(selectedVehicleTypeId) &&
+        Boolean(checkInAt) &&
+        Boolean(checkOutAt) &&
+        checkOutAt > checkInAt;
     const previewMutation = useMutation({
         mutationFn: () => {
             if (!selectedRule) {
@@ -55,15 +65,14 @@ export function PricingPreviewCalculator({
                 throw new Error('Check-out time must be after check-in time.');
             }
 
+            if (!selectedVehicleTypeId) {
+                throw new Error('Selected rule is missing a vehicle type.');
+            }
+
             return previewPricingRuleApi(selectedRule.id, {
-                checkInAt,
-                checkOutAt,
-                parkingId: selectedRule.parkingId ?? null,
-                vehicleTypeId: getRuleVehicleTypeId(
-                    selectedRule,
-                    vehicleTypes,
-                ),
-                vehicleTypeCode: selectedRule.vehicleTypeCode ?? undefined,
+                checkInAt: toOffsetDateTime(checkInAt),
+                checkOutAt: toOffsetDateTime(checkOutAt),
+                vehicleTypeId: selectedVehicleTypeId,
             });
         },
         onError: (error) => {
@@ -85,31 +94,46 @@ export function PricingPreviewCalculator({
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="grid gap-3 md:grid-cols-3">
-                    <Select value={ruleId} onValueChange={setRuleId}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Pricing rule" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {rules.map((rule) => (
-                                <SelectItem key={rule.id} value={rule.id}>
-                                    {rule.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Input
-                        type="datetime-local"
-                        value={checkInAt}
-                        onChange={(event) => setCheckInAt(event.target.value)}
-                    />
-                    <Input
-                        type="datetime-local"
-                        value={checkOutAt}
-                        onChange={(event) => setCheckOutAt(event.target.value)}
-                    />
+                    <div className="space-y-2">
+                        <Label>Pricing rule</Label>
+                        <Select value={ruleId} onValueChange={setRuleId}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Pricing rule" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {rules.map((rule) => (
+                                    <SelectItem key={rule.id} value={rule.id}>
+                                        {rule.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Check-in time</Label>
+                        <Input
+                            type="datetime-local"
+                            step={60}
+                            value={checkInAt}
+                            onChange={(event) =>
+                                setCheckInAt(event.target.value)
+                            }
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Check-out time</Label>
+                        <Input
+                            type="datetime-local"
+                            step={60}
+                            value={checkOutAt}
+                            onChange={(event) =>
+                                setCheckOutAt(event.target.value)
+                            }
+                        />
+                    </div>
                 </div>
                 <Button
-                    disabled={!ruleId || previewMutation.isPending}
+                    disabled={!isPreviewReady || previewMutation.isPending}
                     onClick={() => previewMutation.mutate()}
                 >
                     {previewMutation.isPending ? 'Calculating...' : 'Preview'}
@@ -191,4 +215,15 @@ function getDateTimeLocalOffset(offsetMinutes: number) {
     return new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
         .toISOString()
         .slice(0, 16);
+}
+
+function toOffsetDateTime(value: string) {
+    const date = new Date(value);
+    const offsetMinutes = -date.getTimezoneOffset();
+    const sign = offsetMinutes >= 0 ? '+' : '-';
+    const absoluteOffset = Math.abs(offsetMinutes);
+    const hours = String(Math.floor(absoluteOffset / 60)).padStart(2, '0');
+    const minutes = String(absoluteOffset % 60).padStart(2, '0');
+
+    return `${value}:00${sign}${hours}:${minutes}`;
 }

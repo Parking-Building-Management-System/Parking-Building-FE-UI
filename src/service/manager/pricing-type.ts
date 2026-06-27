@@ -62,8 +62,6 @@ export interface PricingPreviewRequest {
     checkInAt: string;
     checkOutAt: string;
     vehicleTypeId?: string;
-    vehicleTypeCode?: string;
-    parkingId?: string | null;
 }
 
 export interface PricingBreakdownItem {

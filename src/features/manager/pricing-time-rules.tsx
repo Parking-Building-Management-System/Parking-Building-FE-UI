@@ -1,7 +1,7 @@
 'use client';
 
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import {
     keepPreviousData,
     useMutation,
@@ -29,6 +29,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -185,7 +186,7 @@ export function PricingTimeRules() {
                         PARKING_MANAGER
                     </p>
                     <h1 className="mt-2 text-3xl font-semibold tracking-normal">
-                        Time Rules
+                        Pricing Config
                     </h1>
                     <p className="text-muted-foreground mt-2 max-w-2xl text-sm">
                         Configure tenant default and parking-specific pricing
@@ -288,6 +289,13 @@ export function PricingTimeRules() {
                 <CardHeader>
                     <CardTitle>Pricing Rules</CardTitle>
                     <p className="text-muted-foreground text-sm">
+                        Free = free minutes before charging. First Block = first
+                        billable duration and price. Next Block = repeated
+                        duration and price after the first block. Daily Cap =
+                        maximum charge per day. Grace = minutes allowed to exit
+                        after successful payment.
+                    </p>
+                    <p className="text-muted-foreground text-xs">
                         {totalElements.toLocaleString()} rules
                     </p>
                 </CardHeader>
@@ -302,6 +310,7 @@ export function PricingTimeRules() {
                                 <TableHead>First Block</TableHead>
                                 <TableHead>Next Block</TableHead>
                                 <TableHead>Daily Cap</TableHead>
+                                <TableHead>Grace</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead className="text-right">
                                     Actions
@@ -314,19 +323,13 @@ export function PricingTimeRules() {
                                 rules.map((rule) => (
                                     <TableRow key={rule.id}>
                                         <TableCell className="min-w-56">
-                                            <div className="space-y-1">
-                                                <p className="font-medium">
-                                                    {rule.name}
-                                                </p>
-                                                <p className="text-muted-foreground text-xs">
-                                                    Grace after payment:{' '}
-                                                    {formatMinutes(
-                                                        rule.graceMinutesAfterPayment,
-                                                    )}
-                                                </p>
-                                            </div>
+                                            <p className="font-medium">
+                                                {rule.name}
+                                            </p>
                                         </TableCell>
-                                        <TableCell>{getRuleScope(rule)}</TableCell>
+                                        <TableCell>
+                                            {getRuleScope(rule)}
+                                        </TableCell>
                                         <TableCell>
                                             {getRuleVehicleLabel(rule)}
                                         </TableCell>
@@ -350,6 +353,11 @@ export function PricingTimeRules() {
                                             {formatMoney(rule.dailyCapPrice)}
                                         </TableCell>
                                         <TableCell>
+                                            {formatMinutes(
+                                                rule.graceMinutesAfterPayment,
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
                                             <StatusBadge value={rule.status} />
                                         </TableCell>
                                         <TableCell className="text-right">
@@ -357,8 +365,8 @@ export function PricingTimeRules() {
                                                 rule={rule}
                                                 statusPending={
                                                     statusMutation.isPending &&
-                                                    statusMutation.variables?.id ===
-                                                        rule.id
+                                                    statusMutation.variables
+                                                        ?.id === rule.id
                                                 }
                                                 deletePending={
                                                     deleteMutation.isPending &&
@@ -395,7 +403,7 @@ export function PricingTimeRules() {
                             {!rulesQuery.isLoading && rulesQuery.isError && (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={9}
+                                        colSpan={10}
                                         className="text-muted-foreground h-28 text-center"
                                     >
                                         <div className="flex flex-col items-center gap-3">
@@ -421,7 +429,7 @@ export function PricingTimeRules() {
                                 rules.length === 0 && (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={9}
+                                            colSpan={10}
                                             className="text-muted-foreground h-28 text-center"
                                         >
                                             <div className="flex flex-col items-center gap-3">
@@ -454,7 +462,9 @@ export function PricingTimeRules() {
                                 size="sm"
                                 disabled={normalizedPage <= 0}
                                 onClick={() =>
-                                    setPage((current) => Math.max(0, current - 1))
+                                    setPage((current) =>
+                                        Math.max(0, current - 1),
+                                    )
                                 }
                             >
                                 Previous
@@ -466,7 +476,9 @@ export function PricingTimeRules() {
                                     totalPages === 0 ||
                                     normalizedPage + 1 >= totalPages
                                 }
-                                onClick={() => setPage((current) => current + 1)}
+                                onClick={() =>
+                                    setPage((current) => current + 1)
+                                }
                             >
                                 Next
                             </Button>
@@ -514,20 +526,21 @@ function PricingRuleDialog({
     const queryClient = useQueryClient();
     const initialVehicleTypeId = rule
         ? getRuleVehicleTypeId(rule, vehicleTypes)
-        : vehicleTypes[0]?.id ?? '';
+        : (vehicleTypes[0]?.id ?? '');
     const [form, setForm] = useState<PricingRuleDialogForm>({
         name: rule?.name ?? '',
+        scope: rule?.parkingId ? 'PARKING_OVERRIDE' : 'TENANT_DEFAULT',
         parkingId: rule?.parkingId ?? TENANT_DEFAULT,
         vehicleTypeId: initialVehicleTypeId,
         freeMinutes: String(rule?.freeMinutes ?? 0),
         firstBlockMinutes: String(rule?.firstBlockMinutes ?? 60),
-        firstBlockPrice: String(rule?.firstBlockPrice ?? 0),
-        nextBlockMinutes: String(rule?.nextBlockMinutes ?? 30),
-        nextBlockPrice: String(rule?.nextBlockPrice ?? 0),
+        firstBlockPrice: String(rule?.firstBlockPrice ?? 5000),
+        nextBlockMinutes: String(rule?.nextBlockMinutes ?? 60),
+        nextBlockPrice: String(rule?.nextBlockPrice ?? 5000),
         dailyCapPrice:
             typeof rule?.dailyCapPrice === 'number'
                 ? String(rule.dailyCapPrice)
-                : '',
+                : '50000',
         graceMinutesAfterPayment: String(rule?.graceMinutesAfterPayment ?? 15),
         status: rule?.status ?? 'ACTIVE',
     });
@@ -540,7 +553,9 @@ function PricingRuleDialog({
                 : createPricingRuleApi(payload);
         },
         onSuccess: () => {
-            toast.success(rule ? 'Pricing rule updated.' : 'Pricing rule created.');
+            toast.success(
+                rule ? 'Pricing rule updated.' : 'Pricing rule created.',
+            );
             invalidatePricingRules(queryClient);
             onOpenChange(false);
         },
@@ -561,11 +576,12 @@ function PricingRuleDialog({
             <DialogContent className="max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>
-                        {rule ? 'Edit pricing rule' : 'Create pricing rule'}
+                        {rule ? 'Edit Pricing Rule' : 'Create Pricing Rule'}
                     </DialogTitle>
                     <DialogDescription>
-                        Rules are tenant-scoped. Tenant id is never sent by the
-                        frontend.
+                        Tenant default applies to all parkings unless a
+                        parking-specific override exists. Parking override
+                        applies only to the selected parking.
                     </DialogDescription>
                 </DialogHeader>
                 <form
@@ -584,176 +600,245 @@ function PricingRuleDialog({
                     }}
                 >
                     <div className="grid gap-3 md:grid-cols-2">
-                        <Input
-                            placeholder="Rule name"
-                            value={form.name}
-                            disabled={mutation.isPending}
-                            onChange={(event) =>
-                                setFormValue(setForm, 'name', event.target.value)
-                            }
-                        />
-                        <Select
-                            value={form.status}
-                            disabled={mutation.isPending}
-                            onValueChange={(value) =>
-                                setFormValue(setForm, 'status', value)
-                            }
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {pricingRuleStatusValues.map((status) => (
-                                    <SelectItem key={status} value={status}>
-                                        {status}
+                        <LabeledField label="Rule name">
+                            <Input
+                                value={form.name}
+                                disabled={mutation.isPending}
+                                onChange={(event) =>
+                                    setFormValue(
+                                        setForm,
+                                        'name',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        </LabeledField>
+                        <LabeledField label="Status">
+                            <Select
+                                value={form.status}
+                                disabled={mutation.isPending}
+                                onValueChange={(value) =>
+                                    setFormValue(setForm, 'status', value)
+                                }
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {pricingRuleStatusValues.map((status) => (
+                                        <SelectItem key={status} value={status}>
+                                            {status}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </LabeledField>
+                        <LabeledField label="Scope">
+                            <Select
+                                value={form.scope}
+                                disabled={mutation.isPending}
+                                onValueChange={(value) => {
+                                    setForm((current) => ({
+                                        ...current,
+                                        scope: value as PricingRuleDialogForm['scope'],
+                                        parkingId:
+                                            value === 'TENANT_DEFAULT'
+                                                ? TENANT_DEFAULT
+                                                : current.parkingId ===
+                                                    TENANT_DEFAULT
+                                                  ? ''
+                                                  : current.parkingId,
+                                    }));
+                                }}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="TENANT_DEFAULT">
+                                        Tenant default
                                     </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <Select
-                            value={form.parkingId}
-                            disabled={mutation.isPending}
-                            onValueChange={(value) =>
-                                setFormValue(setForm, 'parkingId', value)
-                            }
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Parking scope" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={TENANT_DEFAULT}>
-                                    Tenant default
-                                </SelectItem>
-                                {parkings.map((parking) => (
-                                    <SelectItem
-                                        key={parking.id}
-                                        value={parking.id}
-                                    >
-                                        {parking.name}
+                                    <SelectItem value="PARKING_OVERRIDE">
+                                        Parking override
                                     </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <Select
-                            value={form.vehicleTypeId}
-                            disabled={
-                                mutation.isPending || vehicleTypes.length === 0
-                            }
-                            onValueChange={(value) =>
-                                setFormValue(setForm, 'vehicleTypeId', value)
-                            }
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Vehicle type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {vehicleTypes.map((type) => (
-                                    <SelectItem key={type.id} value={type.id}>
-                                        {type.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                                </SelectContent>
+                            </Select>
+                        </LabeledField>
+                        <LabeledField label="Parking">
+                            <Select
+                                value={form.parkingId}
+                                disabled={
+                                    mutation.isPending ||
+                                    form.scope === 'TENANT_DEFAULT'
+                                }
+                                onValueChange={(value) =>
+                                    setFormValue(setForm, 'parkingId', value)
+                                }
+                            >
+                                <SelectTrigger>
+                                    <SelectValue
+                                        placeholder={
+                                            form.scope === 'TENANT_DEFAULT'
+                                                ? 'All parkings'
+                                                : 'Select parking'
+                                        }
+                                    />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {parkings.map((parking) => (
+                                        <SelectItem
+                                            key={parking.id}
+                                            value={parking.id}
+                                        >
+                                            {parking.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </LabeledField>
+                        <LabeledField label="Vehicle type">
+                            <Select
+                                value={form.vehicleTypeId}
+                                disabled={
+                                    mutation.isPending ||
+                                    vehicleTypes.length === 0
+                                }
+                                onValueChange={(value) =>
+                                    setFormValue(
+                                        setForm,
+                                        'vehicleTypeId',
+                                        value,
+                                    )
+                                }
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select vehicle type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {vehicleTypes.map((type) => (
+                                        <SelectItem
+                                            key={type.id}
+                                            value={type.id}
+                                        >
+                                            {type.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </LabeledField>
                     </div>
                     <div className="grid gap-3 md:grid-cols-3">
-                        <Input
-                            type="number"
-                            min={0}
-                            placeholder="Free minutes"
-                            value={form.freeMinutes}
-                            disabled={mutation.isPending}
-                            onChange={(event) =>
-                                setFormValue(
-                                    setForm,
-                                    'freeMinutes',
-                                    event.target.value,
-                                )
-                            }
-                        />
-                        <Input
-                            type="number"
-                            min={1}
-                            placeholder="First block minutes"
-                            value={form.firstBlockMinutes}
-                            disabled={mutation.isPending}
-                            onChange={(event) =>
-                                setFormValue(
-                                    setForm,
-                                    'firstBlockMinutes',
-                                    event.target.value,
-                                )
-                            }
-                        />
-                        <Input
-                            type="number"
-                            min={0}
-                            placeholder="First block price"
-                            value={form.firstBlockPrice}
-                            disabled={mutation.isPending}
-                            onChange={(event) =>
-                                setFormValue(
-                                    setForm,
-                                    'firstBlockPrice',
-                                    event.target.value,
-                                )
-                            }
-                        />
-                        <Input
-                            type="number"
-                            min={1}
-                            placeholder="Next block minutes"
-                            value={form.nextBlockMinutes}
-                            disabled={mutation.isPending}
-                            onChange={(event) =>
-                                setFormValue(
-                                    setForm,
-                                    'nextBlockMinutes',
-                                    event.target.value,
-                                )
-                            }
-                        />
-                        <Input
-                            type="number"
-                            min={0}
-                            placeholder="Next block price"
-                            value={form.nextBlockPrice}
-                            disabled={mutation.isPending}
-                            onChange={(event) =>
-                                setFormValue(
-                                    setForm,
-                                    'nextBlockPrice',
-                                    event.target.value,
-                                )
-                            }
-                        />
-                        <Input
-                            type="number"
-                            min={0}
-                            placeholder="Daily cap price"
-                            value={form.dailyCapPrice}
-                            disabled={mutation.isPending}
-                            onChange={(event) =>
-                                setFormValue(
-                                    setForm,
-                                    'dailyCapPrice',
-                                    event.target.value,
-                                )
-                            }
-                        />
-                        <Input
-                            type="number"
-                            min={0}
-                            placeholder="Grace minutes after payment"
-                            value={form.graceMinutesAfterPayment}
-                            disabled={mutation.isPending}
-                            onChange={(event) =>
-                                setFormValue(
-                                    setForm,
-                                    'graceMinutesAfterPayment',
-                                    event.target.value,
-                                )
-                            }
-                        />
+                        <LabeledField
+                            label="Free minutes"
+                            help="Use 0 free minutes for demo so the PWA quote charges immediately."
+                        >
+                            <Input
+                                type="number"
+                                min={0}
+                                value={form.freeMinutes}
+                                disabled={mutation.isPending}
+                                onChange={(event) =>
+                                    setFormValue(
+                                        setForm,
+                                        'freeMinutes',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        </LabeledField>
+                        <LabeledField label="First block duration minutes">
+                            <Input
+                                type="number"
+                                min={1}
+                                value={form.firstBlockMinutes}
+                                disabled={mutation.isPending}
+                                onChange={(event) =>
+                                    setFormValue(
+                                        setForm,
+                                        'firstBlockMinutes',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        </LabeledField>
+                        <LabeledField label="First block price">
+                            <Input
+                                type="number"
+                                min={0}
+                                value={form.firstBlockPrice}
+                                disabled={mutation.isPending}
+                                onChange={(event) =>
+                                    setFormValue(
+                                        setForm,
+                                        'firstBlockPrice',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        </LabeledField>
+                        <LabeledField label="Next block duration minutes">
+                            <Input
+                                type="number"
+                                min={1}
+                                value={form.nextBlockMinutes}
+                                disabled={mutation.isPending}
+                                onChange={(event) =>
+                                    setFormValue(
+                                        setForm,
+                                        'nextBlockMinutes',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        </LabeledField>
+                        <LabeledField label="Next block price">
+                            <Input
+                                type="number"
+                                min={0}
+                                value={form.nextBlockPrice}
+                                disabled={mutation.isPending}
+                                onChange={(event) =>
+                                    setFormValue(
+                                        setForm,
+                                        'nextBlockPrice',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        </LabeledField>
+                        <LabeledField label="Daily cap price">
+                            <Input
+                                type="number"
+                                min={0}
+                                value={form.dailyCapPrice}
+                                disabled={mutation.isPending}
+                                onChange={(event) =>
+                                    setFormValue(
+                                        setForm,
+                                        'dailyCapPrice',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        </LabeledField>
+                        <LabeledField
+                            label="Grace minutes after payment"
+                            help="Grace minutes are used after payment before the driver exits the parking lot."
+                        >
+                            <Input
+                                type="number"
+                                min={0}
+                                value={form.graceMinutesAfterPayment}
+                                disabled={mutation.isPending}
+                                onChange={(event) =>
+                                    setFormValue(
+                                        setForm,
+                                        'graceMinutesAfterPayment',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        </LabeledField>
                     </div>
                     {vehicleTypes.length === 0 && (
                         <p className="text-muted-foreground rounded-lg border p-3 text-xs">
@@ -769,7 +854,9 @@ function PricingRuleDialog({
                     <DialogFooter>
                         <Button
                             type="submit"
-                            disabled={mutation.isPending || vehicleTypes.length === 0}
+                            disabled={
+                                mutation.isPending || vehicleTypes.length === 0
+                            }
                         >
                             {mutation.isPending ? 'Saving...' : 'Save'}
                         </Button>
@@ -837,7 +924,7 @@ function RuleSkeleton() {
         <>
             {Array.from({ length: 5 }).map((_, index) => (
                 <TableRow key={index}>
-                    <TableCell colSpan={9}>
+                    <TableCell colSpan={10}>
                         <Skeleton className="h-6 w-full" />
                     </TableCell>
                 </TableRow>
@@ -851,7 +938,7 @@ function buildPricingRulePayload(
 ): PricingRuleRequest {
     return {
         name: form.name.trim(),
-        parkingId: form.parkingId === TENANT_DEFAULT ? null : form.parkingId,
+        parkingId: form.scope === 'TENANT_DEFAULT' ? null : form.parkingId,
         vehicleTypeId: form.vehicleTypeId,
         freeMinutes: Number(form.freeMinutes),
         firstBlockMinutes: Number(form.firstBlockMinutes),
@@ -868,6 +955,7 @@ function buildPricingRulePayload(
 
 interface PricingRuleDialogForm {
     name: string;
+    scope: 'TENANT_DEFAULT' | 'PARKING_OVERRIDE';
     parkingId: string;
     vehicleTypeId: string;
     freeMinutes: string;
@@ -889,14 +977,19 @@ function validatePricingRuleForm(form: PricingRuleDialogForm) {
         return 'Vehicle type is required.';
     }
 
-    const numericFields: Array<[keyof PricingRuleDialogForm, string, number]> = [
-        ['freeMinutes', 'Free minutes', 0],
-        ['firstBlockMinutes', 'First block minutes', 1],
-        ['firstBlockPrice', 'First block price', 0],
-        ['nextBlockMinutes', 'Next block minutes', 1],
-        ['nextBlockPrice', 'Next block price', 0],
-        ['graceMinutesAfterPayment', 'Grace minutes after payment', 0],
-    ];
+    if (form.scope === 'PARKING_OVERRIDE' && !form.parkingId) {
+        return 'Parking is required for a parking override.';
+    }
+
+    const numericFields: Array<[keyof PricingRuleDialogForm, string, number]> =
+        [
+            ['freeMinutes', 'Free minutes', 0],
+            ['firstBlockMinutes', 'First block minutes', 1],
+            ['firstBlockPrice', 'First block price', 0],
+            ['nextBlockMinutes', 'Next block minutes', 1],
+            ['nextBlockPrice', 'Next block price', 0],
+            ['graceMinutesAfterPayment', 'Grace minutes after payment', 0],
+        ];
 
     for (const [field, label, min] of numericFields) {
         const value = Number(form[field]);
@@ -915,6 +1008,28 @@ function validatePricingRuleForm(form: PricingRuleDialogForm) {
     }
 
     return '';
+}
+
+function LabeledField({
+    label,
+    help,
+    children,
+}: {
+    label: string;
+    help?: string;
+    children: ReactNode;
+}) {
+    return (
+        <div className="space-y-2">
+            <Label>{label}</Label>
+            {children}
+            {help && (
+                <p className="text-muted-foreground text-xs leading-5">
+                    {help}
+                </p>
+            )}
+        </div>
+    );
 }
 
 function setFormValue(

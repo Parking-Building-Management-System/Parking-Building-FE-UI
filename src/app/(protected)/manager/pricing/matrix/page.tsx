@@ -1,5 +1,5 @@
-import { PricingMatrix } from '@/features/manager/pricing-matrix';
+import { redirect } from 'next/navigation';
 
 export default function PricingMatrixPage() {
-    return <PricingMatrix />;
+    redirect('/manager/pricing/config');
 }

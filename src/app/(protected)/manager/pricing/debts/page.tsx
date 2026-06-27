@@ -1,6 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { redirect } from 'next/navigation';
 
 export default function DebtRemindersPage() {
-    return <MockModulePage {...mockModulePages['/manager/pricing/debts']} />;
+    redirect('/manager/pricing');
 }
