@@ -9,6 +9,8 @@ import type {
     StaffExitPreviewRequest,
     StaffExitPreviewResponse,
     AvailableRfidCard,
+    StaffParkingSessionPhotoPresignUploadRequest,
+    StaffParkingSessionPhotoPresignUploadResponse,
     StaffVehicleType,
 } from '@/service/staff/type';
 
@@ -78,6 +80,45 @@ export const checkInParkingSessionApi = async (data: StaffCheckInRequest) => {
     >(`${STAFF_ENDPOINT}/parking-sessions/check-in`, data);
 
     return getApiResult(response);
+};
+
+export const presignParkingSessionPhotoUploadApi = async (
+    data: StaffParkingSessionPhotoPresignUploadRequest,
+) => {
+    const response = await apiClient.post<
+        ApiResponse<StaffParkingSessionPhotoPresignUploadResponse>,
+        AxiosResponse<ApiResponse<StaffParkingSessionPhotoPresignUploadResponse>>,
+        StaffParkingSessionPhotoPresignUploadRequest
+    >(`${STAFF_ENDPOINT}/parking-sessions/photos/presign-upload`, data);
+
+    return getApiResult(response);
+};
+
+export const uploadParkingSessionPhotoFile = async (
+    file: File,
+    presign: StaffParkingSessionPhotoPresignUploadResponse,
+) => {
+    let uploadResponse: Response;
+
+    try {
+        uploadResponse = await fetch(presign.uploadUrl, {
+            method: presign.method || 'PUT',
+            headers: {
+                ...presign.headers,
+                'Content-Type':
+                    presign.headers?.['Content-Type'] ?? file.type,
+            },
+            body: file,
+        });
+    } catch {
+        throw new Error(
+            'Photo upload failed. Storage CORS or network access may need configuration.',
+        );
+    }
+
+    if (!uploadResponse.ok) {
+        throw new Error(`Photo upload failed. HTTP ${uploadResponse.status}.`);
+    }
 };
 
 export const previewParkingSessionExitApi = async (

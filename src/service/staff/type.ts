@@ -4,7 +4,8 @@ export interface StaffCheckInRequest {
     plateNumber: string;
     cardCode: string;
     vehicleTypeId: string;
-    entryImageUrl?: string;
+    entryImageUrl: string;
+    licensePlateImageUrl: string;
     parkingId?: string;
 }
 
@@ -21,6 +22,8 @@ export interface StaffCheckInResponse {
     vehicleTypeId?: string | null;
     vehicleTypeCode?: string | null;
     vehicleTypeName?: string | null;
+    entryImageUrl?: string | null;
+    licensePlateImageUrl?: string | null;
     parkingId?: string;
     parkingName?: string | null;
     entryTime: string;
@@ -69,6 +72,22 @@ export interface StaffExitPreviewResponse {
     message?: string | null;
     errorCode?: string | null;
     pricingRuleName?: string | null;
+    entryImageUrl?: string | null;
+    licensePlateImageUrl?: string | null;
+}
+
+export interface StaffParkingSessionPhotoPresignUploadRequest {
+    fileName: string;
+    contentType: string;
+    photoType: 'ENTRY_OVERVIEW' | 'LICENSE_PLATE';
+}
+
+export interface StaffParkingSessionPhotoPresignUploadResponse {
+    uploadUrl: string;
+    objectKey: string;
+    method: 'PUT' | string;
+    headers?: Record<string, string>;
+    expiresInSeconds?: number;
 }
 
 export interface StaffCompleteExitResponse {
@@ -118,13 +137,6 @@ export const staffCheckInFormSchema = z.object({
         .trim()
         .min(1, 'Card code is required.')
         .max(64, 'Card code must be 64 characters or fewer.'),
-    entryImageUrl: z
-        .string()
-        .trim()
-        .url('Entry image URL must be valid.')
-        .max(2048, 'Entry image URL must be 2048 characters or fewer.')
-        .optional()
-        .or(z.literal('')),
 });
 
 export type StaffCheckInFormValues = z.infer<typeof staffCheckInFormSchema>;

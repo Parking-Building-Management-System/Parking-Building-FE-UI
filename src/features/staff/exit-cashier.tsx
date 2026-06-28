@@ -9,6 +9,7 @@ import {
     CreditCard,
     DoorOpen,
     IdCard,
+    ImageIcon,
     Loader2,
     RefreshCw,
     ShieldAlert,
@@ -663,6 +664,8 @@ function PreviewDecision({
                     />
                 </div>
 
+                <EntryVerificationPhotos preview={preview} />
+
                 {!isPaidOnline ? (
                     <div className="grid gap-3 md:grid-cols-2">
                         <label className="space-y-1.5">
@@ -916,6 +919,68 @@ function DetailItem({
             <p className="mt-1 text-sm font-semibold break-all">
                 {value || '-'}
             </p>
+        </div>
+    );
+}
+
+function EntryVerificationPhotos({
+    preview,
+}: {
+    preview: StaffExitPreviewResponse;
+}) {
+    const photos = [
+        {
+            label: 'Driver / vehicle entry photo',
+            url: preview.entryImageUrl,
+        },
+        {
+            label: 'License plate photo',
+            url: preview.licensePlateImageUrl,
+        },
+    ].filter((photo): photo is { label: string; url: string } =>
+        Boolean(photo.url),
+    );
+
+    return (
+        <div className="rounded-lg border p-4">
+            <div className="flex items-center gap-2">
+                <ImageIcon className="text-muted-foreground size-4" />
+                <h3 className="text-sm font-semibold">
+                    Entry verification photos
+                </h3>
+            </div>
+            {photos.length > 0 ? (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {photos.map((photo) => (
+                        <a
+                            key={photo.label}
+                            className="group block rounded-md border p-2"
+                            href={photo.url}
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            <div
+                                className="bg-muted aspect-video overflow-hidden rounded border"
+                                aria-label={photo.label}
+                            >
+                                <span
+                                    className="block size-full bg-cover bg-center transition-transform group-hover:scale-105"
+                                    style={{
+                                        backgroundImage: `url(${photo.url})`,
+                                    }}
+                                />
+                            </div>
+                            <p className="mt-2 text-xs font-medium">
+                                {photo.label}
+                            </p>
+                        </a>
+                    ))}
+                </div>
+            ) : (
+                <p className="text-muted-foreground mt-3 text-sm">
+                    No entry photos available.
+                </p>
+            )}
         </div>
     );
 }

@@ -28,7 +28,6 @@ import {
 import {
     Form,
     FormControl,
-    FormDescription,
     FormField,
     FormItem,
     FormLabel,
@@ -47,12 +46,33 @@ import {
     checkInParkingSessionApi,
     getStaffVehicleTypes,
     listAvailableRfidCardsApi,
+    presignParkingSessionPhotoUploadApi,
     staffQueryKeys,
     staffCheckInFormSchema,
     type StaffCheckInFormValues,
     type StaffCheckInResponse,
+    uploadParkingSessionPhotoFile,
 } from '@/service/staff';
 import { useAuthStore } from '@/stores/use-auth-store';
+
+const ACCEPTED_ENTRY_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_ENTRY_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
+
+type EntryPhotoKind = 'entryOverview' | 'licensePlate';
+
+type EntryPhotoState = {
+    file: File | null;
+    previewUrl: string;
+    status: 'idle' | 'uploading' | 'uploaded' | 'error';
+    error: string;
+};
+
+const createEmptyEntryPhoto = (): EntryPhotoState => ({
+    file: null,
+    previewUrl: '',
+    status: 'idle',
+    error: '',
+});
 
 const getStaffCheckInErrorMessage = (error: unknown) => {
     if (error instanceof ApiError) {
@@ -171,13 +191,18 @@ const buildPublicUrl = (path: string) => {
 const buildCheckInRequest = (
     values: StaffCheckInFormValues,
     parkingId?: string,
+    photos?: {
+        entryImageUrl: string;
+        licensePlateImageUrl: string;
+    },
 ) => {
     return {
         plateNumber: values.plateNumber.trim().toUpperCase(),
         cardCode: values.cardCode.trim().toUpperCase(),
         vehicleTypeId: values.vehicleTypeId,
         parkingId,
-        entryImageUrl: values.entryImageUrl?.trim() || undefined,
+        entryImageUrl: photos?.entryImageUrl ?? '',
+        licensePlateImageUrl: photos?.licensePlateImageUrl ?? '',
     };
 };
 
@@ -196,12 +221,49 @@ const getVehicleTypeLabel = (vehicleType: {
     );
 };
 
+const formatFileSize = (size: number) => {
+    if (size < 1024 * 1024) {
+        return `${Math.max(1, Math.round(size / 1024)).toLocaleString()} KB`;
+    }
+
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const validateEntryPhotoFile = (file: File) => {
+    if (!ACCEPTED_ENTRY_PHOTO_TYPES.includes(file.type)) {
+        return 'Upload a JPG, PNG, or WebP photo.';
+    }
+
+    if (file.size > MAX_ENTRY_PHOTO_SIZE_BYTES) {
+        return 'Entry photo must be 5 MB or smaller.';
+    }
+
+    return '';
+};
+
+const getPhotoUploadErrorMessage = (error: unknown) => {
+    if (error instanceof ApiError) {
+        return error.message || 'Photo upload failed. Try another photo.';
+    }
+
+    if (error instanceof Error) {
+        return error.message || 'Photo upload failed. Try another photo.';
+    }
+
+    return 'Photo upload failed. Try another photo.';
+};
+
 export function StaffEntryCheckIn() {
     const queryClient = useQueryClient();
     const workContext = useAuthStore((state) => state.user?.workContext);
     const [checkInResult, setCheckInResult] =
         useState<StaffCheckInResponse | null>(null);
     const [cardSearch, setCardSearch] = useState('');
+    const [entryOverviewPhoto, setEntryOverviewPhoto] =
+        useState<EntryPhotoState>(() => createEmptyEntryPhoto());
+    const [licensePlatePhoto, setLicensePlatePhoto] =
+        useState<EntryPhotoState>(() => createEmptyEntryPhoto());
+    const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
     const deferredCardSearch = useDeferredValue(cardSearch);
     const form = useForm<StaffCheckInFormValues>({
         resolver: zodResolver(staffCheckInFormSchema),
@@ -209,7 +271,6 @@ export function StaffEntryCheckIn() {
             plateNumber: '',
             vehicleTypeId: '',
             cardCode: '',
-            entryImageUrl: '',
         },
     });
     const [plateNumber = '', vehicleTypeId = '', cardCode = ''] = useWatch({
@@ -238,9 +299,9 @@ export function StaffEntryCheckIn() {
                 plateNumber: '',
                 vehicleTypeId: selectedVehicleTypeId,
                 cardCode: '',
-                entryImageUrl: '',
             });
             setCardSearch('');
+            resetPhotoInputs();
             await queryClient.invalidateQueries({
                 queryKey: ['staff-available-rfid-cards'],
             });
@@ -327,12 +388,31 @@ export function StaffEntryCheckIn() {
     );
     const publicPwaUrl = useMemo(() => buildPublicUrl(pwaPath), [pwaPath]);
     const availableCards = availableCardsQuery.data ?? [];
+    const isBusy = isUploadingPhotos || checkInMutation.isPending;
     const isSubmitDisabled =
-        checkInMutation.isPending ||
+        isBusy ||
         !plateNumber.trim() ||
         !cardCode.trim() ||
         !vehicleTypeId ||
+        !entryOverviewPhoto.file ||
+        !licensePlatePhoto.file ||
         vehicleTypesQuery.isLoading;
+
+    useEffect(() => {
+        return () => {
+            if (entryOverviewPhoto.previewUrl) {
+                URL.revokeObjectURL(entryOverviewPhoto.previewUrl);
+            }
+        };
+    }, [entryOverviewPhoto.previewUrl]);
+
+    useEffect(() => {
+        return () => {
+            if (licensePlatePhoto.previewUrl) {
+                URL.revokeObjectURL(licensePlatePhoto.previewUrl);
+            }
+        };
+    }, [licensePlatePhoto.previewUrl]);
 
     const onCopyPwaLink = async () => {
         if (!publicPwaUrl) {
@@ -350,11 +430,157 @@ export function StaffEntryCheckIn() {
         }
     };
 
-    const onSubmit = (values: StaffCheckInFormValues) => {
+    const updatePhotoState = (
+        kind: EntryPhotoKind,
+        patch: Partial<EntryPhotoState>,
+    ) => {
+        const updater = (previous: EntryPhotoState) => ({
+            ...previous,
+            ...patch,
+        });
+
+        if (kind === 'entryOverview') {
+            setEntryOverviewPhoto(updater);
+        } else {
+            setLicensePlatePhoto(updater);
+        }
+    };
+
+    const resetPhotoInputs = () => {
+        setEntryOverviewPhoto((previous) => {
+            if (previous.previewUrl) {
+                URL.revokeObjectURL(previous.previewUrl);
+            }
+
+            return createEmptyEntryPhoto();
+        });
+        setLicensePlatePhoto((previous) => {
+            if (previous.previewUrl) {
+                URL.revokeObjectURL(previous.previewUrl);
+            }
+
+            return createEmptyEntryPhoto();
+        });
+    };
+
+    const onPhotoFileChange = (kind: EntryPhotoKind, file: File | null) => {
+        const setPhoto =
+            kind === 'entryOverview'
+                ? setEntryOverviewPhoto
+                : setLicensePlatePhoto;
+
+        setPhoto((previous) => {
+            if (previous.previewUrl) {
+                URL.revokeObjectURL(previous.previewUrl);
+            }
+
+            if (!file) {
+                return createEmptyEntryPhoto();
+            }
+
+            const validationError = validateEntryPhotoFile(file);
+
+            return {
+                file,
+                previewUrl: URL.createObjectURL(file),
+                status: validationError ? 'error' : 'idle',
+                error: validationError,
+            };
+        });
+    };
+
+    const uploadEntryPhoto = async (
+        kind: EntryPhotoKind,
+        file: File,
+        photoType: 'ENTRY_OVERVIEW' | 'LICENSE_PLATE',
+    ) => {
+        updatePhotoState(kind, { status: 'uploading', error: '' });
+
+        const presign = await presignParkingSessionPhotoUploadApi({
+            fileName: file.name,
+            contentType: file.type,
+            photoType,
+        });
+        await uploadParkingSessionPhotoFile(file, presign);
+        updatePhotoState(kind, { status: 'uploaded', error: '' });
+
+        return presign.objectKey;
+    };
+
+    const onSubmit = async (values: StaffCheckInFormValues) => {
+        const entryFile = entryOverviewPhoto.file;
+        const plateFile = licensePlatePhoto.file;
+        const entryPhotoError = entryFile
+            ? validateEntryPhotoFile(entryFile)
+            : 'Driver / vehicle entry photo is required.';
+        const platePhotoError = plateFile
+            ? validateEntryPhotoFile(plateFile)
+            : 'License plate photo is required.';
+
+        if (entryPhotoError || platePhotoError) {
+            if (entryPhotoError) {
+                updatePhotoState('entryOverview', {
+                    status: 'error',
+                    error: entryPhotoError,
+                });
+            }
+            if (platePhotoError) {
+                updatePhotoState('licensePlate', {
+                    status: 'error',
+                    error: platePhotoError,
+                });
+            }
+            toast.error('Select both entry verification photos before check-in.');
+            return;
+        }
+
+        if (!entryFile || !plateFile) {
+            return;
+        }
+
         setCheckInResult(null);
-        checkInMutation.mutate(
-            buildCheckInRequest(values, workContext?.parkingId),
-        );
+        setIsUploadingPhotos(true);
+
+        let uploadedPhotos: {
+            entryImageUrl: string;
+            licensePlateImageUrl: string;
+        };
+
+        try {
+            const [entryImageUrl, licensePlateImageUrl] = await Promise.all([
+                uploadEntryPhoto(
+                    'entryOverview',
+                    entryFile,
+                    'ENTRY_OVERVIEW',
+                ),
+                uploadEntryPhoto(
+                    'licensePlate',
+                    plateFile,
+                    'LICENSE_PLATE',
+                ),
+            ]);
+            uploadedPhotos = { entryImageUrl, licensePlateImageUrl };
+        } catch (error) {
+            toast.error(getPhotoUploadErrorMessage(error));
+            setIsUploadingPhotos(false);
+            return;
+        }
+
+        setIsUploadingPhotos(false);
+
+        try {
+            await checkInMutation.mutateAsync(
+                buildCheckInRequest(
+                    values,
+                    workContext?.parkingId,
+                    uploadedPhotos,
+                ),
+            );
+        } catch {
+            // The mutation onError handler owns check-in specific messaging.
+        } finally {
+            setIsUploadingPhotos(false);
+        }
     };
 
     return (
@@ -422,9 +648,7 @@ export function StaffEntryCheckIn() {
                                                         placeholder="51A-12345"
                                                         autoComplete="off"
                                                         autoFocus
-                                                        disabled={
-                                                            checkInMutation.isPending
-                                                        }
+                                                        disabled={isBusy}
                                                         {...field}
                                                     />
                                                 </FormControl>
@@ -444,7 +668,7 @@ export function StaffEntryCheckIn() {
                                                 <Select
                                                     value={field.value}
                                                     disabled={
-                                                        checkInMutation.isPending ||
+                                                        isBusy ||
                                                         vehicleTypesQuery.isLoading ||
                                                         activeVehicleTypes.length ===
                                                             0
@@ -519,9 +743,7 @@ export function StaffEntryCheckIn() {
                                                                 className="pl-9"
                                                                 placeholder="Search available cards"
                                                                 autoComplete="off"
-                                                                disabled={
-                                                                    checkInMutation.isPending
-                                                                }
+                                                                disabled={isBusy}
                                                                 value={
                                                                     cardSearch
                                                                 }
@@ -561,7 +783,7 @@ export function StaffEntryCheckIn() {
                                                                 : undefined
                                                         }
                                                         disabled={
-                                                            checkInMutation.isPending ||
+                                                            isBusy ||
                                                             availableCardsQuery.isLoading ||
                                                             availableCards.length ===
                                                                 0
@@ -597,8 +819,6 @@ export function StaffEntryCheckIn() {
                                                         <p className="text-destructive text-xs">
                                                             Could not load
                                                             available cards.
-                                                            Manual entry is
-                                                            still available.
                                                         </p>
                                                     ) : availableCardsQuery.isLoading ? (
                                                         <p className="text-muted-foreground text-xs">
@@ -620,24 +840,6 @@ export function StaffEntryCheckIn() {
                                                             loaded.
                                                         </p>
                                                     )}
-                                                    <FormControl>
-                                                        <Input
-                                                            placeholder="Manual card code fallback"
-                                                            autoComplete="off"
-                                                            disabled={
-                                                                checkInMutation.isPending
-                                                            }
-                                                            value={field.value}
-                                                            onChange={(event) =>
-                                                                field.onChange(
-                                                                    event.target.value.toUpperCase(),
-                                                                )
-                                                            }
-                                                            onBlur={
-                                                                field.onBlur
-                                                            }
-                                                        />
-                                                    </FormControl>
                                                 </div>
                                                 <FormMessage />
                                             </FormItem>
@@ -645,33 +847,43 @@ export function StaffEntryCheckIn() {
                                     />
                                 </div>
 
-                                <FormField
-                                    control={form.control}
-                                    name="entryImageUrl"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>
-                                                Entry image URL (optional)
-                                            </FormLabel>
-                                            <FormControl>
-                                                <Input
-                                                    placeholder="https://example.com/entry-image.jpg"
-                                                    autoComplete="off"
-                                                    disabled={
-                                                        checkInMutation.isPending
-                                                    }
-                                                    {...field}
-                                                />
-                                            </FormControl>
-                                            <FormDescription>
-                                                Camera upload is not part of
-                                                this demo; paste an image URL
-                                                only when available.
-                                            </FormDescription>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                                <div className="space-y-3 rounded-lg border p-4">
+                                    <div>
+                                        <h3 className="text-sm font-semibold">
+                                            Entry verification photos
+                                        </h3>
+                                        <p className="text-muted-foreground text-xs">
+                                            Capture both photos before creating
+                                            the entry session.
+                                        </p>
+                                    </div>
+                                    <div className="grid gap-3 md:grid-cols-2">
+                                        <EntryPhotoInput
+                                            id="entry-overview-photo"
+                                            label="Driver / vehicle entry photo"
+                                            photo={entryOverviewPhoto}
+                                            disabled={isBusy}
+                                            onChange={(file) =>
+                                                onPhotoFileChange(
+                                                    'entryOverview',
+                                                    file,
+                                                )
+                                            }
+                                        />
+                                        <EntryPhotoInput
+                                            id="license-plate-photo"
+                                            label="License plate photo"
+                                            photo={licensePlatePhoto}
+                                            disabled={isBusy}
+                                            onChange={(file) =>
+                                                onPhotoFileChange(
+                                                    'licensePlate',
+                                                    file,
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                </div>
 
                                 <Button
                                     type="submit"
@@ -680,9 +892,11 @@ export function StaffEntryCheckIn() {
                                     disabled={isSubmitDisabled}
                                 >
                                     <DoorOpen data-icon="inline-start" />
-                                    {checkInMutation.isPending
-                                        ? 'Creating session...'
-                                        : 'Create Entry & Open Gate'}
+                                    {isUploadingPhotos
+                                        ? 'Uploading photos...'
+                                        : checkInMutation.isPending
+                                          ? 'Creating session...'
+                                          : 'Create Entry & Open Gate'}
                                 </Button>
                             </form>
                         </Form>
@@ -719,6 +933,33 @@ export function StaffEntryCheckIn() {
                                             </div>
                                         ))}
                                     </div>
+
+                                    {checkInResult.entryImageUrl ||
+                                    checkInResult.licensePlateImageUrl ? (
+                                        <div className="rounded-lg border p-4">
+                                            <h3 className="text-sm font-semibold">
+                                                Entry verification photos
+                                            </h3>
+                                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                                {checkInResult.entryImageUrl ? (
+                                                    <VerificationPhotoLink
+                                                        label="Driver / vehicle"
+                                                        url={
+                                                            checkInResult.entryImageUrl
+                                                        }
+                                                    />
+                                                ) : null}
+                                                {checkInResult.licensePlateImageUrl ? (
+                                                    <VerificationPhotoLink
+                                                        label="License plate"
+                                                        url={
+                                                            checkInResult.licensePlateImageUrl
+                                                        }
+                                                    />
+                                                ) : null}
+                                            </div>
+                                        </div>
+                                    ) : null}
 
                                     <div className="bg-muted/30 rounded-lg border p-4">
                                         <div className="flex flex-col gap-4">
@@ -824,10 +1065,12 @@ export function StaffEntryCheckIn() {
                                     <ImageIcon className="size-4" />
                                 </div>
                                 <div>
-                                    <p className="font-medium">Entry image</p>
+                                    <p className="font-medium">
+                                        Entry photos
+                                    </p>
                                     <p className="text-muted-foreground text-xs">
-                                        This demo sends an image URL only when
-                                        staff provides one.
+                                        Staff uploads driver overview and plate
+                                        photos before creating the session.
                                     </p>
                                 </div>
                             </CardContent>
@@ -845,5 +1088,109 @@ function ContextItem({ label, value }: { label: string; value: string }) {
             <p className="text-muted-foreground text-xs">{label}</p>
             <p className="truncate font-medium">{value}</p>
         </div>
+    );
+}
+
+function EntryPhotoInput({
+    disabled,
+    id,
+    label,
+    onChange,
+    photo,
+}: {
+    disabled: boolean;
+    id: string;
+    label: string;
+    onChange: (file: File | null) => void;
+    photo: EntryPhotoState;
+}) {
+    return (
+        <div className="space-y-2 rounded-md border p-3">
+            <label className="text-sm font-medium" htmlFor={id}>
+                {label}
+            </label>
+            <Input
+                id={id}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                disabled={disabled}
+                onChange={(event) =>
+                    onChange(event.target.files?.item(0) ?? null)
+                }
+            />
+            {photo.file ? (
+                <div className="flex gap-3">
+                    {photo.previewUrl ? (
+                        <a
+                            className="bg-muted block size-20 shrink-0 overflow-hidden rounded-md border"
+                            href={photo.previewUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label={`${label} preview`}
+                        >
+                            <span
+                                className="block size-full bg-cover bg-center"
+                                style={{
+                                    backgroundImage: `url(${photo.previewUrl})`,
+                                }}
+                            />
+                        </a>
+                    ) : null}
+                    <div className="min-w-0 text-xs">
+                        <p className="font-medium break-all">
+                            {photo.file.name}
+                        </p>
+                        <p className="text-muted-foreground">
+                            {formatFileSize(photo.file.size)}
+                        </p>
+                        {photo.status === 'uploading' ? (
+                            <p className="text-muted-foreground mt-1">
+                                Uploading...
+                            </p>
+                        ) : photo.status === 'uploaded' ? (
+                            <p className="mt-1 text-emerald-600">Uploaded</p>
+                        ) : null}
+                    </div>
+                </div>
+            ) : (
+                <p className="text-muted-foreground text-xs">
+                    No photo selected.
+                </p>
+            )}
+            {photo.error ? (
+                <p className="text-destructive text-xs">{photo.error}</p>
+            ) : null}
+        </div>
+    );
+}
+
+function VerificationPhotoLink({
+    label,
+    url,
+}: {
+    label: string;
+    url: string;
+}) {
+    return (
+        <a
+            className="group block rounded-md border p-2"
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+        >
+            <div
+                className="bg-muted aspect-video overflow-hidden rounded border"
+                aria-label={`${label} entry verification`}
+            >
+                <span
+                    className="block size-full bg-cover bg-center transition-transform group-hover:scale-105"
+                    style={{
+                        backgroundImage: `url(${url})`,
+                    }}
+                />
+            </div>
+            <p className="mt-2 text-xs font-medium">{label}</p>
+        </a>
     );
 }
