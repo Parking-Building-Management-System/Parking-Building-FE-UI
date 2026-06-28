@@ -1,6 +1,6 @@
 'use client';
 
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
@@ -14,7 +14,7 @@ import {
     RefreshCw,
     Search,
 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -45,6 +45,7 @@ import {
 import { ApiError } from '@/lib/api/axios-config';
 import {
     checkInParkingSessionApi,
+    getStaffVehicleTypes,
     listAvailableRfidCardsApi,
     staffQueryKeys,
     staffCheckInFormSchema,
@@ -70,6 +71,14 @@ const getStaffCheckInErrorMessage = (error: unknown) => {
             normalizedMessage.includes('đang được sử dụng')
         ) {
             return 'This card is already being used by another active session.';
+        }
+
+        if (
+            normalizedMessage.includes(
+                'no available slot for selected vehicle type',
+            )
+        ) {
+            return 'No available slot for selected vehicle type.';
         }
 
         if (
@@ -161,19 +170,30 @@ const buildPublicUrl = (path: string) => {
 
 const buildCheckInRequest = (
     values: StaffCheckInFormValues,
-    hasWorkContext: boolean,
+    parkingId?: string,
 ) => {
-    const request = {
+    return {
         plateNumber: values.plateNumber.trim().toUpperCase(),
         cardCode: values.cardCode.trim().toUpperCase(),
+        vehicleTypeId: values.vehicleTypeId,
+        parkingId,
         entryImageUrl: values.entryImageUrl?.trim() || undefined,
     };
+};
 
-    if (hasWorkContext) {
-        return request;
-    }
-
-    return request;
+const getVehicleTypeLabel = (vehicleType: {
+    code?: string | null;
+    name?: string | null;
+    displayName?: string | null;
+    label?: string | null;
+}) => {
+    return (
+        vehicleType.displayName ||
+        vehicleType.label ||
+        vehicleType.name ||
+        vehicleType.code ||
+        ''
+    );
 };
 
 export function StaffEntryCheckIn() {
@@ -187,11 +207,20 @@ export function StaffEntryCheckIn() {
         resolver: zodResolver(staffCheckInFormSchema),
         defaultValues: {
             plateNumber: '',
+            vehicleTypeId: '',
             cardCode: '',
             entryImageUrl: '',
         },
     });
+    const [plateNumber = '', vehicleTypeId = '', cardCode = ''] = useWatch({
+        control: form.control,
+        name: ['plateNumber', 'vehicleTypeId', 'cardCode'],
+    });
 
+    const vehicleTypesQuery = useQuery({
+        queryKey: staffQueryKeys.vehicleTypes,
+        queryFn: getStaffVehicleTypes,
+    });
     const availableCardsQuery = useQuery({
         queryKey: staffQueryKeys.availableRfidCards(
             deferredCardSearch.trim(),
@@ -202,10 +231,12 @@ export function StaffEntryCheckIn() {
     const checkInMutation = useMutation({
         mutationFn: checkInParkingSessionApi,
         onSuccess: async (result) => {
+            const selectedVehicleTypeId = form.getValues('vehicleTypeId');
             setCheckInResult(result);
             toast.success('Slot assigned. Entry gate can open.');
             form.reset({
                 plateNumber: '',
+                vehicleTypeId: selectedVehicleTypeId,
                 cardCode: '',
                 entryImageUrl: '',
             });
@@ -218,6 +249,29 @@ export function StaffEntryCheckIn() {
             toast.error(getStaffCheckInErrorMessage(error));
         },
     });
+
+    const activeVehicleTypes = useMemo(() => {
+        return (vehicleTypesQuery.data ?? []).filter(
+            (vehicleType) => vehicleType.active !== false,
+        );
+    }, [vehicleTypesQuery.data]);
+
+    useEffect(() => {
+        if (form.getValues('vehicleTypeId') || activeVehicleTypes.length === 0) {
+            return;
+        }
+
+        const defaultVehicleType =
+            activeVehicleTypes.find(
+                (vehicleType) => vehicleType.code.toUpperCase() === 'CAR',
+            ) ?? activeVehicleTypes[0];
+
+        form.setValue('vehicleTypeId', defaultVehicleType.id, {
+            shouldDirty: false,
+            shouldTouch: false,
+            shouldValidate: true,
+        });
+    }, [activeVehicleTypes, form]);
 
     const resultItems = useMemo(() => {
         if (!checkInResult) {
@@ -241,6 +295,17 @@ export function StaffEntryCheckIn() {
                 label: 'Zone',
                 value: checkInResult.zoneName,
             },
+            ...(checkInResult.vehicleTypeName || checkInResult.vehicleTypeCode
+                ? [
+                      {
+                          label: 'Vehicle type',
+                          value:
+                              checkInResult.vehicleTypeName ??
+                              checkInResult.vehicleTypeCode ??
+                              '',
+                      },
+                  ]
+                : []),
             {
                 label: 'Parking',
                 value: checkInResult.parkingName ?? checkInResult.parkingId,
@@ -262,6 +327,12 @@ export function StaffEntryCheckIn() {
     );
     const publicPwaUrl = useMemo(() => buildPublicUrl(pwaPath), [pwaPath]);
     const availableCards = availableCardsQuery.data ?? [];
+    const isSubmitDisabled =
+        checkInMutation.isPending ||
+        !plateNumber.trim() ||
+        !cardCode.trim() ||
+        !vehicleTypeId ||
+        vehicleTypesQuery.isLoading;
 
     const onCopyPwaLink = async () => {
         if (!publicPwaUrl) {
@@ -281,7 +352,9 @@ export function StaffEntryCheckIn() {
 
     const onSubmit = (values: StaffCheckInFormValues) => {
         setCheckInResult(null);
-        checkInMutation.mutate(buildCheckInRequest(values, !!workContext));
+        checkInMutation.mutate(
+            buildCheckInRequest(values, workContext?.parkingId),
+        );
     };
 
     return (
@@ -355,6 +428,78 @@ export function StaffEntryCheckIn() {
                                                         {...field}
                                                     />
                                                 </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <FormField
+                                        control={form.control}
+                                        name="vehicleTypeId"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>
+                                                    Vehicle type
+                                                </FormLabel>
+                                                <Select
+                                                    value={field.value}
+                                                    disabled={
+                                                        checkInMutation.isPending ||
+                                                        vehicleTypesQuery.isLoading ||
+                                                        activeVehicleTypes.length ===
+                                                            0
+                                                    }
+                                                    onValueChange={
+                                                        field.onChange
+                                                    }
+                                                >
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select vehicle type" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {activeVehicleTypes.map(
+                                                            (vehicleType) => {
+                                                                const label =
+                                                                    getVehicleTypeLabel(
+                                                                        vehicleType,
+                                                                    );
+
+                                                                return (
+                                                                    <SelectItem
+                                                                        key={
+                                                                            vehicleType.id
+                                                                        }
+                                                                        value={
+                                                                            vehicleType.id
+                                                                        }
+                                                                    >
+                                                                        {label}
+                                                                        {vehicleType.code &&
+                                                                        vehicleType.code !==
+                                                                            label
+                                                                            ? ` (${vehicleType.code})`
+                                                                            : ''}
+                                                                    </SelectItem>
+                                                                );
+                                                            },
+                                                        )}
+                                                    </SelectContent>
+                                                </Select>
+                                                {vehicleTypesQuery.isError ? (
+                                                    <p className="text-destructive text-xs">
+                                                        Could not load vehicle
+                                                        types.
+                                                    </p>
+                                                ) : !vehicleTypesQuery.isLoading &&
+                                                  activeVehicleTypes.length ===
+                                                      0 ? (
+                                                    <p className="text-muted-foreground text-xs">
+                                                        No vehicle types are
+                                                        available.
+                                                    </p>
+                                                ) : null}
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -532,7 +677,7 @@ export function StaffEntryCheckIn() {
                                     type="submit"
                                     size="lg"
                                     className="h-12 w-full text-base"
-                                    disabled={checkInMutation.isPending}
+                                    disabled={isSubmitDisabled}
                                 >
                                     <DoorOpen data-icon="inline-start" />
                                     {checkInMutation.isPending

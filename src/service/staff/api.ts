@@ -9,6 +9,7 @@ import type {
     StaffExitPreviewRequest,
     StaffExitPreviewResponse,
     AvailableRfidCard,
+    StaffVehicleType,
 } from '@/service/staff/type';
 
 const STAFF_ENDPOINT = '/staff';
@@ -25,8 +26,48 @@ export const staffQueryKeys = {
     parkingSessions: ['staff', 'parking-sessions'] as const,
     exitPreview: ['staff', 'parking-sessions', 'exit-preview'] as const,
     completeExit: ['staff', 'parking-sessions', 'complete-exit'] as const,
+    vehicleTypes: ['staff', 'master-data', 'vehicle-types'] as const,
     availableRfidCards: (search: string) =>
         ['staff-available-rfid-cards', search] as const,
+};
+
+const normalizeOptionalString = (value: unknown) => {
+    return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+};
+
+const normalizeStaffVehicleType = (
+    item: StaffVehicleType & Record<string, unknown>,
+): StaffVehicleType | null => {
+    const id = normalizeOptionalString(item.id);
+    const code = normalizeOptionalString(item.code);
+    const name =
+        normalizeOptionalString(item.name) ??
+        normalizeOptionalString(item.displayName) ??
+        normalizeOptionalString(item.label) ??
+        code;
+
+    if (!id || !code || !name) {
+        return null;
+    }
+
+    const status = normalizeOptionalString(item.status);
+    const active =
+        typeof item.active === 'boolean'
+            ? item.active
+            : status
+              ? status.toUpperCase() === 'ACTIVE'
+              : true;
+
+    return {
+        id,
+        code,
+        name,
+        displayName: normalizeOptionalString(item.displayName) ?? null,
+        label: normalizeOptionalString(item.label) ?? null,
+        active,
+        status: status ?? null,
+        createdAt: normalizeOptionalString(item.createdAt),
+    };
 };
 
 export const checkInParkingSessionApi = async (data: StaffCheckInRequest) => {
@@ -61,6 +102,20 @@ export const completeParkingSessionExitApi = async (
     >(`${STAFF_ENDPOINT}/parking-sessions/complete-exit`, data);
 
     return getApiResult(response);
+};
+
+export const getStaffVehicleTypes = async () => {
+    const response = await apiClient.get<ApiResponse<unknown[]>>(
+        `${STAFF_ENDPOINT}/master-data/vehicle-types`,
+    );
+
+    return getApiResult(response)
+        .map((item) =>
+            normalizeStaffVehicleType(
+                item as StaffVehicleType & Record<string, unknown>,
+            ),
+        )
+        .filter((item): item is StaffVehicleType => item !== null);
 };
 
 export const listAvailableRfidCardsApi = async (

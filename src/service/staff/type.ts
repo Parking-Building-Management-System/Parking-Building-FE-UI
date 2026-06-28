@@ -3,6 +3,7 @@ import * as z from 'zod';
 export interface StaffCheckInRequest {
     plateNumber: string;
     cardCode: string;
+    vehicleTypeId: string;
     entryImageUrl?: string;
     parkingId?: string;
 }
@@ -17,6 +18,9 @@ export interface StaffCheckInResponse {
     assignedSlotCode: string;
     zoneId?: string;
     zoneName: string;
+    vehicleTypeId?: string | null;
+    vehicleTypeCode?: string | null;
+    vehicleTypeName?: string | null;
     parkingId?: string;
     parkingName?: string | null;
     entryTime: string;
@@ -91,12 +95,24 @@ export interface AvailableRfidCard {
     status: 'ACTIVE' | string;
 }
 
+export interface StaffVehicleType {
+    id: string;
+    code: string;
+    name: string;
+    displayName?: string | null;
+    label?: string | null;
+    active?: boolean;
+    status?: string | null;
+    createdAt?: string;
+}
+
 export const staffCheckInFormSchema = z.object({
     plateNumber: z
         .string()
         .trim()
         .min(1, 'Plate number is required.')
         .max(32, 'Plate number must be 32 characters or fewer.'),
+    vehicleTypeId: z.string().trim().min(1, 'Vehicle type is required.'),
     cardCode: z
         .string()
         .trim()
