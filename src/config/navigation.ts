@@ -222,6 +222,10 @@ export const navigationGroups: NavigationGroup[] = [
                         title: 'Pricing Config',
                         href: '/manager/pricing/config',
                     },
+                    {
+                        title: 'Penalty Rules',
+                        href: '/manager/pricing/penalty-rules',
+                    },
                 ],
             },
             {
@@ -306,6 +310,12 @@ export const navigationGroups: NavigationGroup[] = [
                 title: 'Exit Cashier',
                 href: '/staff/exit',
                 icon: Receipt,
+                roles: ['STAFF'],
+            },
+            {
+                title: 'Lost Card',
+                href: '/staff/lost-card',
+                icon: CreditCard,
                 roles: ['STAFF'],
             },
             {

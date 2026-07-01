@@ -65,6 +65,12 @@ export interface StaffExitPreviewResponse {
     amountDue?: number | null;
     surchargeAmount?: number | null;
     totalAmount?: number | null;
+    parkingAmountDue?: number | null;
+    surchargeAmountDue?: number | null;
+    penaltyAmountDue?: number | null;
+    totalAmountDue?: number | null;
+    penaltyCases?: StaffPenaltyCase[];
+    hasUnpaidPenalties?: boolean | null;
     currency?: string | null;
     paymentStatus?: string | null;
     paidAt?: string | null;
@@ -74,6 +80,39 @@ export interface StaffExitPreviewResponse {
     pricingRuleName?: string | null;
     entryImageUrl?: string | null;
     licensePlateImageUrl?: string | null;
+}
+
+export type PenaltyCaseStatus =
+    | 'REPORTED'
+    | 'APPLIED'
+    | 'WAIVED'
+    | 'COLLECTED';
+
+export type PenaltyType =
+    | 'OCCUPIED_ASSIGNED_SLOT'
+    | 'ILLEGAL_PARKING'
+    | 'LOST_CARD'
+    | 'BLOCKING_LANE'
+    | 'OTHER';
+
+export interface StaffPenaltyCase {
+    id: string;
+    type: PenaltyType | string;
+    name?: string | null;
+    amount: number;
+    currency?: string | null;
+    status: PenaltyCaseStatus | string;
+    targetLicensePlate?: string | null;
+    offenderLicensePlate?: string | null;
+    reportedSlotCode?: string | null;
+    reassignedSlotCode?: string | null;
+    evidenceImageUrl?: string | null;
+    identityImageUrl?: string | null;
+    vehicleImageUrl?: string | null;
+    licensePlateImageUrl?: string | null;
+    note?: string | null;
+    createdAt?: string | null;
+    collectedAt?: string | null;
 }
 
 export interface StaffParkingSessionPhotoPresignUploadRequest {
@@ -97,12 +136,91 @@ export interface StaffCompleteExitResponse {
     checkInAt?: string | null;
     slotCode?: string | null;
     totalAmount?: number | null;
+    penaltyAmountDue?: number | null;
+    totalAmountDue?: number | null;
     collectedAmount?: number | null;
     currency?: string | null;
     paymentMode?: StaffExitPaymentMode | string | null;
     checkOutAt?: string | null;
     status?: string | null;
     slotStatus?: string | null;
+    cardStatus?: string | null;
+    message?: string | null;
+}
+
+export interface StaffLostCardPhotoPresignUploadRequest {
+    fileName: string;
+    contentType: string;
+    photoType: 'IDENTITY_DOCUMENT' | 'VEHICLE' | 'LICENSE_PLATE';
+}
+
+export interface StaffLostCardPhotoPresignUploadResponse {
+    uploadUrl: string;
+    objectKey: string;
+    method: 'PUT' | string;
+    headers?: Record<string, string>;
+    expiresInSeconds?: number;
+    publicUrl?: string | null;
+}
+
+export interface StaffLostCardPreviewResponse {
+    sessionId: string;
+    plateNumber: string;
+    vehicleTypeId?: string | null;
+    vehicleType?: string | null;
+    parkingId?: string | null;
+    parkingName?: string | null;
+    zoneId?: string | null;
+    zoneName?: string | null;
+    slotId?: string | null;
+    slotCode?: string | null;
+    checkInAt?: string | null;
+    entryImageUrl?: string | null;
+    licensePlateImageUrl?: string | null;
+    parkingAmountDue?: number | null;
+    surchargeAmountDue?: number | null;
+    existingPenaltyAmount?: number | null;
+    lostCardPenaltyAmount?: number | null;
+    totalDueIfLostCard?: number | null;
+    currency?: string | null;
+    currentRfidCardCode?: string | null;
+    activePenaltyCases?: StaffPenaltyCase[];
+}
+
+export interface StaffLostCardCaseRequest {
+    sessionId: string;
+    identityImageUrl: string;
+    vehicleImageUrl: string;
+    licensePlateImageUrl: string;
+    note?: string;
+}
+
+export interface StaffLostCardCaseResponse {
+    penaltyCase: StaffPenaltyCase;
+    message?: string | null;
+}
+
+export interface StaffLostCardCompleteExitRequest {
+    sessionId: string;
+    lostCardCaseId: string;
+    collectedAmount: number;
+    note?: string;
+}
+
+export interface StaffLostCardCompleteExitResponse {
+    sessionId?: string | null;
+    status?: string | null;
+    plateNumber?: string | null;
+    checkOutAt?: string | null;
+    parkingAmountDue?: number | null;
+    surchargeAmountDue?: number | null;
+    penaltyAmountDue?: number | null;
+    totalAmountDue?: number | null;
+    collectedAmount?: number | null;
+    currency?: string | null;
+    slotCode?: string | null;
+    slotStatus?: string | null;
+    cardCode?: string | null;
     cardStatus?: string | null;
     message?: string | null;
 }

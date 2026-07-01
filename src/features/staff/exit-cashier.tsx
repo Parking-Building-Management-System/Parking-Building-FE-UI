@@ -108,17 +108,22 @@ const getPreviewAmount = (preview: StaffExitPreviewResponse) =>
     preview.totalAmount ?? preview.amountDue ?? null;
 
 const getCollectedDefault = (preview: StaffExitPreviewResponse) => {
+    if (typeof preview.totalAmountDue === 'number') {
+        return preview.totalAmountDue;
+    }
+
     const decision = getExitDecision(preview);
+    const penaltyAmount = preview.penaltyAmountDue ?? 0;
 
     if (decision === 'GRACE_EXPIRED_SURCHARGE') {
-        return preview.surchargeAmount ?? preview.amountDue ?? 0;
+        return (preview.surchargeAmount ?? preview.amountDue ?? 0) + penaltyAmount;
     }
 
     if (decision === 'COLLECT_CASH') {
-        return preview.amountDue ?? preview.totalAmount ?? 0;
+        return (preview.amountDue ?? preview.totalAmount ?? 0) + penaltyAmount;
     }
 
-    return 0;
+    return penaltyAmount;
 };
 
 const getPaymentMode = (decision: string): StaffExitPaymentMode | null => {
@@ -208,7 +213,8 @@ const getStaffExitErrorMessage = (error: unknown) => {
 
         if (
             normalized.includes('cash_amount_too_low') ||
-            normalized.includes('surcharge_amount_too_low')
+            normalized.includes('surcharge_amount_too_low') ||
+            normalized.includes('penalty_amount_too_low')
         ) {
             return 'The collected amount is lower than the required amount.';
         }
@@ -498,7 +504,7 @@ export function StaffExitCashier() {
                         <GuideItem
                             icon={<CreditCard className="size-4" />}
                             title="Paid online"
-                            description="Complete exit with ONLINE and collect no cash."
+                            description="Complete exit with ONLINE; collect penalty cash if preview returns penalties."
                         />
                         <GuideItem
                             icon={<Banknote className="size-4" />}
@@ -551,6 +557,9 @@ function PreviewDecision({
     const isSurcharge = decision === 'GRACE_EXPIRED_SURCHARGE';
     const isBlocked = decision === 'BLOCKED';
     const currency = preview.currency ?? 'VND';
+    const penaltyAmount = preview.penaltyAmountDue ?? 0;
+    const hasPenalty = penaltyAmount > 0;
+    const cashCollectionRequired = !isPaidOnline || hasPenalty;
 
     if (isBlocked) {
         return (
@@ -591,7 +600,11 @@ function PreviewDecision({
                         tone="green"
                         icon={<CheckCircle2 className="size-5" />}
                         title="PAID ONLINE"
-                        description="Online payment is confirmed. Gate exit can be completed."
+                        description={
+                            hasPenalty
+                                ? 'Online payment is confirmed. Collect unpaid penalties before opening the gate.'
+                                : 'Online payment is confirmed. Gate exit can be completed.'
+                        }
                     />
                 ) : isCash ? (
                     <DecisionBanner
@@ -628,17 +641,26 @@ function PreviewDecision({
                         value={formatDuration(preview.durationMinutes)}
                     />
                     <DetailItem
-                        label={isPaidOnline ? 'Amount paid' : 'Amount due'}
+                        label="Parking due"
                         value={formatMoney(
-                            isPaidOnline
-                                ? getPreviewAmount(preview)
-                                : (preview.amountDue ??
-                                      getPreviewAmount(preview)),
+                            preview.parkingAmountDue ?? preview.amountDue,
                             currency,
                         )}
                     />
                     <DetailItem
-                        label="Total amount"
+                        label="Penalty due"
+                        value={formatMoney(preview.penaltyAmountDue, currency)}
+                    />
+                    <DetailItem
+                        label="Total due now"
+                        value={formatMoney(
+                            preview.totalAmountDue ??
+                                getCollectedDefault(preview),
+                            currency,
+                        )}
+                    />
+                    <DetailItem
+                        label="Parking total"
                         value={formatMoney(getPreviewAmount(preview), currency)}
                     />
                     <DetailItem
@@ -653,7 +675,8 @@ function PreviewDecision({
                         <DetailItem
                             label="Surcharge amount"
                             value={formatMoney(
-                                preview.surchargeAmount,
+                                preview.surchargeAmountDue ??
+                                    preview.surchargeAmount,
                                 currency,
                             )}
                         />
@@ -664,9 +687,13 @@ function PreviewDecision({
                     />
                 </div>
 
+                <PenaltyCaseList
+                    cases={preview.penaltyCases ?? []}
+                    currency={currency}
+                />
                 <EntryVerificationPhotos preview={preview} />
 
-                {!isPaidOnline ? (
+                {cashCollectionRequired ? (
                     <div className="grid gap-3 md:grid-cols-2">
                         <label className="space-y-1.5">
                             <span className="text-sm font-medium">
@@ -759,6 +786,17 @@ function CompletionSuccess({
                         value={formatMoney(completion.totalAmount, currency)}
                     />
                     <DetailItem
+                        label="Penalty collected"
+                        value={formatMoney(
+                            completion.penaltyAmountDue,
+                            currency,
+                        )}
+                    />
+                    <DetailItem
+                        label="Total due collected"
+                        value={formatMoney(completion.totalAmountDue, currency)}
+                    />
+                    <DetailItem
                         label="Collected amount"
                         value={formatMoney(
                             completion.collectedAmount,
@@ -793,6 +831,52 @@ function CompletionSuccess({
                 </Button>
             </CardContent>
         </Card>
+    );
+}
+
+function PenaltyCaseList({
+    cases,
+    currency,
+}: {
+    cases: StaffExitPreviewResponse['penaltyCases'];
+    currency: string;
+}) {
+    if (!cases || cases.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="rounded-lg border p-4">
+            <div className="flex items-center gap-2">
+                <ShieldAlert className="text-muted-foreground size-4" />
+                <h3 className="text-sm font-semibold">Unpaid penalties</h3>
+            </div>
+            <div className="mt-3 space-y-2">
+                {cases.map((penaltyCase) => (
+                    <div
+                        key={penaltyCase.id}
+                        className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
+                    >
+                        <div>
+                            <p className="font-medium">
+                                {penaltyCase.name ?? penaltyCase.type}
+                            </p>
+                            <p className="text-muted-foreground text-xs">
+                                {penaltyCase.reportedSlotCode
+                                    ? `Reported slot ${penaltyCase.reportedSlotCode}`
+                                    : penaltyCase.status}
+                            </p>
+                        </div>
+                        <span className="font-semibold">
+                            {formatMoney(
+                                penaltyCase.amount,
+                                penaltyCase.currency ?? currency,
+                            )}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        </div>
     );
 }
 

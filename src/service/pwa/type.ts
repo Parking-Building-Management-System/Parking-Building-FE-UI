@@ -121,3 +121,33 @@ export interface PwaPaymentIntentStatusResponse {
     checkoutUrl?: string | null;
     qrCode?: string | null;
 }
+
+export interface PwaReportUploadRequest {
+    fileName: string;
+    contentType: string;
+}
+
+export interface PwaReportUploadResponse {
+    objectKey: string;
+    uploadUrl: string;
+    method: 'PUT' | string;
+    headers?: Record<string, string>;
+    expiresInSeconds?: number;
+    publicUrl?: string | null;
+}
+
+export interface OccupiedSlotReportRequest {
+    offenderPlateNumber: string;
+    evidenceImageUrl: string;
+    note?: string;
+}
+
+export interface OccupiedSlotReportResponse {
+    message: string;
+    oldSlotId?: string | null;
+    oldSlotCode?: string | null;
+    newSlotId?: string | null;
+    newSlotCode?: string | null;
+    offenderMatched: boolean;
+    penaltyCaseId?: string | null;
+}

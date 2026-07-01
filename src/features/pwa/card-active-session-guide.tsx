@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
     AlertCircle,
+    Camera,
     CheckCircle2,
     Copy,
     ExternalLink,
@@ -19,6 +20,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api/axios-config';
 import { cn } from '@/lib/utils';
 import {
@@ -27,6 +29,10 @@ import {
     getPwaCheckoutQuoteApi,
     getPwaPaymentIntentApi,
     pwaQueryKeys,
+    createPwaReportUploadUrlApi,
+    reportOccupiedSlotApi,
+    uploadPwaReportFile,
+    type OccupiedSlotReportResponse,
     type PwaActiveSessionResponse,
     type PwaCheckoutQuoteResponse,
     type PwaCreatePaymentIntentResponse,
@@ -51,6 +57,8 @@ interface PaymentDisplayData {
 }
 
 const TERMINAL_PAYMENT_STATUSES = ['PAID', 'FAILED', 'CANCELLED', 'EXPIRED'];
+const ACCEPTED_REPORT_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_REPORT_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
 
 const isHttpUrl = (value?: string | null) =>
     !!value && /^https?:\/\//i.test(value);
@@ -192,6 +200,32 @@ const getPaymentErrorMessage = (error: unknown) => {
     return 'Network error. Please try again.';
 };
 
+const getReportErrorMessage = (error: unknown) => {
+    if (error instanceof ApiError) {
+        const normalizedMessage = (error.message || '').toLowerCase();
+
+        if (normalizedMessage.includes('penalty_rule_not_configured')) {
+            return 'This parking has not configured an occupied-slot fine yet.';
+        }
+
+        if (normalizedMessage.includes('no_available_replacement_slot')) {
+            return 'No replacement slot is available right now. Contact parking staff.';
+        }
+
+        if (normalizedMessage.includes('offender_plate_matches_victim')) {
+            return 'The offender plate must be different from your plate.';
+        }
+
+        return error.message || 'Report could not be submitted.';
+    }
+
+    if (error instanceof Error) {
+        return error.message || 'Report could not be submitted.';
+    }
+
+    return 'Report could not be submitted.';
+};
+
 export function CardActiveSessionGuide({
     qrToken,
 }: CardActiveSessionGuideProps) {
@@ -245,6 +279,7 @@ export function CardActiveSessionGuide({
                     <ActiveSessionContent
                         qrToken={qrToken}
                         session={activeSessionQuery.data}
+                        onSessionRefresh={() => activeSessionQuery.refetch()}
                     />
                 ) : (
                     <StatePanel
@@ -259,9 +294,11 @@ export function CardActiveSessionGuide({
 }
 
 function ActiveSessionContent({
+    onSessionRefresh,
     qrToken,
     session,
 }: {
+    onSessionRefresh: () => void;
     qrToken: string;
     session: PwaActiveSessionResponse;
 }) {
@@ -322,8 +359,210 @@ function ActiveSessionContent({
             </section>
 
             <MapSection session={session} />
+            <OccupiedSlotReportCard
+                qrToken={qrToken}
+                session={session}
+                onSessionRefresh={onSessionRefresh}
+            />
             <CheckoutQuotePanel qrToken={qrToken} />
         </div>
+    );
+}
+
+function OccupiedSlotReportCard({
+    onSessionRefresh,
+    qrToken,
+    session,
+}: {
+    onSessionRefresh: () => void;
+    qrToken: string;
+    session: PwaActiveSessionResponse;
+}) {
+    const [offenderPlateNumber, setOffenderPlateNumber] = useState('');
+    const [note, setNote] = useState('');
+    const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
+    const [evidencePreviewUrl, setEvidencePreviewUrl] = useState('');
+    const [result, setResult] = useState<OccupiedSlotReportResponse | null>(
+        null,
+    );
+    const reportMutation = useMutation({
+        mutationFn: async () => {
+            const plate = offenderPlateNumber.trim().toUpperCase();
+
+            if (!plate) {
+                throw new Error('Offender plate number is required.');
+            }
+
+            if (!evidenceFile) {
+                throw new Error('Evidence photo is required.');
+            }
+
+            const upload = await createPwaReportUploadUrlApi(qrToken, {
+                fileName: evidenceFile.name,
+                contentType: evidenceFile.type,
+            });
+            await uploadPwaReportFile(evidenceFile, upload);
+
+            return reportOccupiedSlotApi(qrToken, {
+                offenderPlateNumber: plate,
+                evidenceImageUrl: upload.publicUrl ?? upload.objectKey,
+                note: note.trim() || undefined,
+            });
+        },
+        onSuccess: (response) => {
+            setResult(response);
+            toast.success('Report submitted.');
+            onSessionRefresh();
+        },
+        onError: (error) => {
+            toast.error(getReportErrorMessage(error));
+        },
+    });
+
+    const onEvidenceChange = (file?: File) => {
+        if (evidencePreviewUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(evidencePreviewUrl);
+        }
+
+        if (!file) {
+            setEvidenceFile(null);
+            setEvidencePreviewUrl('');
+            return;
+        }
+
+        if (!ACCEPTED_REPORT_PHOTO_TYPES.includes(file.type)) {
+            toast.error('Upload a JPG, PNG, or WebP photo.');
+            return;
+        }
+
+        if (file.size > MAX_REPORT_PHOTO_SIZE_BYTES) {
+            toast.error('Evidence photo must be 5 MB or smaller.');
+            return;
+        }
+
+        setEvidenceFile(file);
+        setEvidencePreviewUrl(URL.createObjectURL(file));
+    };
+
+    return (
+        <section className="bg-card rounded-lg border p-4 shadow-sm">
+            <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                    <h2 className="text-lg font-semibold">
+                        Report occupied slot
+                    </h2>
+                    <p className="text-muted-foreground text-xs">
+                        Assigned slot: {session.slotCode || '-'}
+                    </p>
+                </div>
+                <Camera className="text-muted-foreground size-5" />
+            </div>
+
+            {result ? (
+                <div className="space-y-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3">
+                    <p className="text-sm font-semibold">{result.message}</p>
+                    <div className="grid gap-2 text-sm sm:grid-cols-2">
+                        <QuoteMetric
+                            label="Old slot"
+                            value={result.oldSlotCode || '-'}
+                        />
+                        <QuoteMetric
+                            label="New slot"
+                            value={result.newSlotCode || '-'}
+                        />
+                    </div>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            setResult(null);
+                            setOffenderPlateNumber('');
+                            setNote('');
+                            setEvidenceFile(null);
+                            setEvidencePreviewUrl('');
+                        }}
+                    >
+                        New report
+                    </Button>
+                </div>
+            ) : (
+                <form
+                    className="space-y-3"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        reportMutation.mutate();
+                    }}
+                >
+                    <label className="space-y-1.5">
+                        <span className="text-sm font-medium">
+                            Offender plate number
+                        </span>
+                        <Input
+                            value={offenderPlateNumber}
+                            placeholder="51A-99999"
+                            autoCapitalize="characters"
+                            disabled={reportMutation.isPending}
+                            onChange={(event) =>
+                                setOffenderPlateNumber(event.target.value)
+                            }
+                        />
+                    </label>
+                    <label className="space-y-1.5">
+                        <span className="text-sm font-medium">
+                            Evidence photo
+                        </span>
+                        <Input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            capture="environment"
+                            disabled={reportMutation.isPending}
+                            onChange={(event) =>
+                                onEvidenceChange(
+                                    event.target.files?.[0] ?? undefined,
+                                )
+                            }
+                        />
+                    </label>
+                    {evidencePreviewUrl ? (
+                        <div className="bg-muted aspect-video overflow-hidden rounded-md border">
+                            <span
+                                className="block size-full bg-cover bg-center"
+                                style={{
+                                    backgroundImage: `url(${evidencePreviewUrl})`,
+                                }}
+                            />
+                        </div>
+                    ) : null}
+                    <label className="space-y-1.5">
+                        <span className="text-sm font-medium">Note</span>
+                        <Input
+                            value={note}
+                            placeholder="Optional"
+                            disabled={reportMutation.isPending}
+                            onChange={(event) => setNote(event.target.value)}
+                        />
+                    </label>
+                    <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={reportMutation.isPending}
+                    >
+                        {reportMutation.isPending ? (
+                            <Loader2
+                                className="animate-spin"
+                                data-icon="inline-start"
+                            />
+                        ) : (
+                            <AlertCircle data-icon="inline-start" />
+                        )}
+                        {reportMutation.isPending
+                            ? 'Submitting report...'
+                            : 'Submit report'}
+                    </Button>
+                </form>
+            )}
+        </section>
     );
 }
 

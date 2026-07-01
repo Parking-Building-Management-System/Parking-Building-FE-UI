@@ -12,6 +12,13 @@ import type {
     StaffParkingSessionPhotoPresignUploadRequest,
     StaffParkingSessionPhotoPresignUploadResponse,
     StaffVehicleType,
+    StaffLostCardPhotoPresignUploadRequest,
+    StaffLostCardPhotoPresignUploadResponse,
+    StaffLostCardPreviewResponse,
+    StaffLostCardCaseRequest,
+    StaffLostCardCaseResponse,
+    StaffLostCardCompleteExitRequest,
+    StaffLostCardCompleteExitResponse,
 } from '@/service/staff/type';
 
 const STAFF_ENDPOINT = '/staff';
@@ -28,6 +35,10 @@ export const staffQueryKeys = {
     parkingSessions: ['staff', 'parking-sessions'] as const,
     exitPreview: ['staff', 'parking-sessions', 'exit-preview'] as const,
     completeExit: ['staff', 'parking-sessions', 'complete-exit'] as const,
+    lostCardPreview: (plateNumber: string) =>
+        ['staff', 'lost-card', 'preview', plateNumber] as const,
+    lostCardCase: ['staff', 'lost-card', 'case'] as const,
+    lostCardCompleteExit: ['staff', 'lost-card', 'complete-exit'] as const,
     vehicleTypes: ['staff', 'master-data', 'vehicle-types'] as const,
     availableRfidCards: (search: string) =>
         ['staff-available-rfid-cards', search] as const,
@@ -121,6 +132,45 @@ export const uploadParkingSessionPhotoFile = async (
     }
 };
 
+export const presignLostCardPhotoUploadApi = async (
+    data: StaffLostCardPhotoPresignUploadRequest,
+) => {
+    const response = await apiClient.post<
+        ApiResponse<StaffLostCardPhotoPresignUploadResponse>,
+        AxiosResponse<ApiResponse<StaffLostCardPhotoPresignUploadResponse>>,
+        StaffLostCardPhotoPresignUploadRequest
+    >(`${STAFF_ENDPOINT}/lost-card/photos/presign-upload`, data);
+
+    return getApiResult(response);
+};
+
+export const uploadLostCardPhotoFile = async (
+    file: File,
+    presign: StaffLostCardPhotoPresignUploadResponse,
+) => {
+    let uploadResponse: Response;
+
+    try {
+        uploadResponse = await fetch(presign.uploadUrl, {
+            method: presign.method || 'PUT',
+            headers: {
+                ...presign.headers,
+                'Content-Type':
+                    presign.headers?.['Content-Type'] ?? file.type,
+            },
+            body: file,
+        });
+    } catch {
+        throw new Error(
+            'Photo upload failed. Storage CORS or network access may need configuration.',
+        );
+    }
+
+    if (!uploadResponse.ok) {
+        throw new Error(`Photo upload failed. HTTP ${uploadResponse.status}.`);
+    }
+};
+
 export const previewParkingSessionExitApi = async (
     data: StaffExitPreviewRequest,
 ) => {
@@ -141,6 +191,40 @@ export const completeParkingSessionExitApi = async (
         AxiosResponse<ApiResponse<StaffCompleteExitResponse>>,
         StaffCompleteExitRequest
     >(`${STAFF_ENDPOINT}/parking-sessions/complete-exit`, data);
+
+    return getApiResult(response);
+};
+
+export const previewLostCardApi = async (plateNumber: string) => {
+    const response = await apiClient.get<
+        ApiResponse<StaffLostCardPreviewResponse>
+    >(`${STAFF_ENDPOINT}/lost-card/preview`, {
+        params: { plateNumber },
+    });
+
+    return getApiResult(response);
+};
+
+export const createLostCardCaseApi = async (
+    data: StaffLostCardCaseRequest,
+) => {
+    const response = await apiClient.post<
+        ApiResponse<StaffLostCardCaseResponse>,
+        AxiosResponse<ApiResponse<StaffLostCardCaseResponse>>,
+        StaffLostCardCaseRequest
+    >(`${STAFF_ENDPOINT}/lost-card/cases`, data);
+
+    return getApiResult(response);
+};
+
+export const completeLostCardExitApi = async (
+    data: StaffLostCardCompleteExitRequest,
+) => {
+    const response = await apiClient.post<
+        ApiResponse<StaffLostCardCompleteExitResponse>,
+        AxiosResponse<ApiResponse<StaffLostCardCompleteExitResponse>>,
+        StaffLostCardCompleteExitRequest
+    >(`${STAFF_ENDPOINT}/lost-card/complete-exit`, data);
 
     return getApiResult(response);
 };

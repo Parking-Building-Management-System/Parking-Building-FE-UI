@@ -7,6 +7,10 @@ import type {
     PwaCheckoutQuoteResponse,
     PwaCreatePaymentIntentResponse,
     PwaPaymentIntentStatusResponse,
+    PwaReportUploadRequest,
+    PwaReportUploadResponse,
+    OccupiedSlotReportRequest,
+    OccupiedSlotReportResponse,
 } from '@/service/pwa/type';
 
 const PWA_ENDPOINT = '/pwa';
@@ -44,6 +48,8 @@ export const pwaQueryKeys = {
         ['pwa-checkout-quote', qrToken] as const,
     paymentIntent: (orderCode: number | string) =>
         ['pwa-payment-intent', orderCode] as const,
+    occupiedSlotReport: (qrToken: string) =>
+        ['pwa-occupied-slot-report', qrToken] as const,
 };
 
 export const getPwaCardActiveSessionApi = async (qrToken: string) => {
@@ -141,6 +147,95 @@ export const getPwaPaymentIntentApi = async (orderCode: number | string) => {
                 error.response?.data?.message ||
                     error.message ||
                     'Cannot load payment status',
+                {
+                    status: error.response?.status,
+                    code: error.response?.data?.code,
+                    details: error.response?.data?.errors,
+                },
+            );
+        }
+
+        throw error;
+    }
+};
+
+export const createPwaReportUploadUrlApi = async (
+    qrToken: string,
+    data: PwaReportUploadRequest,
+) => {
+    try {
+        const response = await publicApiClient.post<
+            ApiResponse<PwaReportUploadResponse>
+        >(
+            `${PWA_ENDPOINT}/cards/${encodeURIComponent(qrToken)}/reports/upload-url`,
+            data,
+        );
+
+        return getApiResult(response);
+    } catch (error) {
+        if (axios.isAxiosError<ApiResponse>(error)) {
+            throw new ApiError(
+                error.response?.data?.message ||
+                    error.message ||
+                    'Cannot create report upload URL',
+                {
+                    status: error.response?.status,
+                    code: error.response?.data?.code,
+                    details: error.response?.data?.errors,
+                },
+            );
+        }
+
+        throw error;
+    }
+};
+
+export const uploadPwaReportFile = async (
+    file: File,
+    presign: PwaReportUploadResponse,
+) => {
+    let uploadResponse: Response;
+
+    try {
+        uploadResponse = await fetch(presign.uploadUrl, {
+            method: presign.method || 'PUT',
+            headers: {
+                ...presign.headers,
+                'Content-Type':
+                    presign.headers?.['Content-Type'] ?? file.type,
+            },
+            body: file,
+        });
+    } catch {
+        throw new Error(
+            'Photo upload failed. Storage CORS or network access may need configuration.',
+        );
+    }
+
+    if (!uploadResponse.ok) {
+        throw new Error(`Photo upload failed. HTTP ${uploadResponse.status}.`);
+    }
+};
+
+export const reportOccupiedSlotApi = async (
+    qrToken: string,
+    data: OccupiedSlotReportRequest,
+) => {
+    try {
+        const response = await publicApiClient.post<
+            ApiResponse<OccupiedSlotReportResponse>
+        >(
+            `${PWA_ENDPOINT}/cards/${encodeURIComponent(qrToken)}/reports/occupied-slot`,
+            data,
+        );
+
+        return getApiResult(response);
+    } catch (error) {
+        if (axios.isAxiosError<ApiResponse>(error)) {
+            throw new ApiError(
+                error.response?.data?.message ||
+                    error.message ||
+                    'Cannot submit occupied slot report',
                 {
                     status: error.response?.status,
                     code: error.response?.data?.code,
