@@ -19,6 +19,10 @@ import type {
     StaffLostCardCaseResponse,
     StaffLostCardCompleteExitRequest,
     StaffLostCardCompleteExitResponse,
+    StaffCashShift,
+    StaffCashShiftCloseRequest,
+    StaffCashSettlementPreviewResponse,
+    StaffCurrentCashShiftResponse,
 } from '@/service/staff/type';
 
 const STAFF_ENDPOINT = '/staff';
@@ -42,6 +46,13 @@ export const staffQueryKeys = {
     vehicleTypes: ['staff', 'master-data', 'vehicle-types'] as const,
     availableRfidCards: (search: string) =>
         ['staff-available-rfid-cards', search] as const,
+    currentShift: ['staff', 'shifts', 'current'] as const,
+    shiftSettlementPreview: [
+        'staff',
+        'shifts',
+        'current',
+        'settlement-preview',
+    ] as const,
 };
 
 const normalizeOptionalString = (value: unknown) => {
@@ -257,6 +268,42 @@ export const listAvailableRfidCardsApi = async (
             },
         },
     );
+
+    return getApiResult(response);
+};
+
+export const startShiftApi = async () => {
+    const response = await apiClient.post<ApiResponse<StaffCashShift>>(
+        `${STAFF_ENDPOINT}/shifts/start`,
+    );
+
+    return getApiResult(response);
+};
+
+export const getCurrentShiftApi = async () => {
+    const response = await apiClient.get<
+        ApiResponse<StaffCurrentCashShiftResponse>
+    >(`${STAFF_ENDPOINT}/shifts/current`);
+
+    return getApiResult(response);
+};
+
+export const getShiftSettlementPreviewApi = async () => {
+    const response = await apiClient.get<
+        ApiResponse<StaffCashSettlementPreviewResponse>
+    >(`${STAFF_ENDPOINT}/shifts/current/settlement-preview`);
+
+    return getApiResult(response);
+};
+
+export const closeCurrentShiftApi = async (
+    data: StaffCashShiftCloseRequest,
+) => {
+    const response = await apiClient.post<
+        ApiResponse<StaffCashShift>,
+        AxiosResponse<ApiResponse<StaffCashShift>>,
+        StaffCashShiftCloseRequest
+    >(`${STAFF_ENDPOINT}/shifts/current/close`, data);
 
     return getApiResult(response);
 };

@@ -243,6 +243,79 @@ export interface StaffVehicleType {
     createdAt?: string;
 }
 
+export type StaffCashShiftStatus = 'OPEN' | 'CLOSED';
+
+export type StaffCashTransactionType =
+    | 'PARKING_CASH'
+    | 'SURCHARGE_CASH'
+    | 'PENALTY_CASH'
+    | 'LOST_CARD_FINE'
+    | 'ADJUSTMENT';
+
+export type StaffCashTransactionSource =
+    | 'NORMAL_EXIT'
+    | 'LOST_CARD_EXIT'
+    | 'PENALTY_COLLECTION';
+
+export interface StaffCashTransaction {
+    id: string;
+    type: StaffCashTransactionType | string;
+    source: StaffCashTransactionSource | string;
+    amount: number;
+    occurredAt: string;
+    parkingSessionId?: string | null;
+    penaltyCaseId?: string | null;
+    note?: string | null;
+}
+
+export interface StaffCashShift {
+    id: string;
+    staffId: string;
+    staffName?: string | null;
+    staffUsername?: string | null;
+    parkingId: string;
+    parkingName?: string | null;
+    kioskId: string;
+    kioskName?: string | null;
+    openedAt: string;
+    closedAt?: string | null;
+    status: StaffCashShiftStatus | string;
+    expectedCashAmount: number;
+    countedCashAmount?: number | null;
+    varianceAmount?: number | null;
+    onlineAmount: number;
+    cashParkingAmount: number;
+    surchargeCashAmount: number;
+    penaltyCashAmount: number;
+    lostCardCashAmount: number;
+    transactionCount: number;
+    note?: string | null;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+}
+
+export interface StaffCurrentCashShiftResponse {
+    hasOpenShift: boolean;
+    shift?: StaffCashShift | null;
+}
+
+export interface StaffCashSettlementPreviewResponse {
+    shift: StaffCashShift;
+    expectedCashAmount: number;
+    onlineAmount: number;
+    cashParkingAmount: number;
+    surchargeCashAmount: number;
+    penaltyCashAmount: number;
+    lostCardCashAmount: number;
+    transactionCount: number;
+    recentTransactions: StaffCashTransaction[];
+}
+
+export interface StaffCashShiftCloseRequest {
+    countedCashAmount: number;
+    note?: string;
+}
+
 export const staffCheckInFormSchema = z.object({
     plateNumber: z
         .string()

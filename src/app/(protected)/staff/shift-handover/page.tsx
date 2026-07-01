@@ -1,6 +1,5 @@
-import { MockModulePage } from '@/components/mock-module-page';
-import { mockModulePages } from '@/config/mock-pages';
+import { StaffCashShiftSettlement } from '@/features/staff/cash-shift-settlement';
 
 export default function ShiftHandoverPage() {
-    return <MockModulePage {...mockModulePages['/staff/shift-handover']} />;
+    return <StaffCashShiftSettlement />;
 }

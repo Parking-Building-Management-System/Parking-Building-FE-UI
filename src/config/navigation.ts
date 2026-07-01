@@ -203,6 +203,10 @@ export const navigationGroups: NavigationGroup[] = [
                         href: '/manager/operations/logs',
                     },
                     {
+                        title: 'Shift Settlements',
+                        href: '/manager/operations/shift-settlements',
+                    },
+                    {
                         title: 'Exceptions',
                         href: '/manager/operations/exceptions',
                     },
