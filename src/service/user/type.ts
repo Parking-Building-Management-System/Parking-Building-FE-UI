@@ -20,7 +20,7 @@ export interface UserProfile {
 export interface StaffWorkContext {
     kioskId: string;
     kioskName: string;
-    kioskType: 'ENTRY' | 'EXIT' | 'BOTH';
+    kioskType: 'ENTRY' | 'EXIT' | 'MIXED';
     parkingId: string;
     parkingName: string;
 }

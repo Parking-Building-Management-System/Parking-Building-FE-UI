@@ -1,4 +1,4 @@
-export const kioskTypeValues = ['ENTRY', 'EXIT', 'BOTH'] as const;
+export const kioskTypeValues = ['ENTRY', 'EXIT', 'MIXED'] as const;
 export const kioskStatusValues = ['ACTIVE', 'INACTIVE'] as const;
 export const deviceApprovalStatusValues = [
     'PENDING',

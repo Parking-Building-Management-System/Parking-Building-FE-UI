@@ -1,0 +1,415 @@
+TIÊU ĐỀ:
+07 - PAYMENT FRONTEND AUDIT: MANAGER PRICING / PWA PAYOS / STAFF EXIT
+
+================================================================================
+PHẦN 1: KẾT LUẬN NGẮN GỌN
+================================================================================
+
+Trả lời rõ:
+
+1. FE Manager có màn setup pricing chưa?
+- ĐÃ CÓ. Manager đã có các màn hình gồm: Tổng quan (Pricing Overview), Cấu hình luật tính phí (Time Rules CRUD) tích hợp bộ tính thử giá (Preview Calculator), và Bảng ma trận giá (Pricing Matrix).
+
+2. FE Manager có màn setup PayOS merchant/config chưa?
+- CHƯA CÓ (MISSING). Không có bất kỳ giao diện hay form cấu hình thông tin kết nối merchant/credentials của PayOS ở phía Manager UI. Cấu hình này đang phải thiết lập cứng dưới Backend.
+
+3. PWA có hiển thị checkout quote chưa?
+- ĐÃ CÓ. Panel "Checkout quote" hiển thị đầy đủ thông tin thời gian đỗ, quy định giá áp dụng, tổng số tiền phải trả và bảng chi tiết phân rã phí đỗ xe (breakdown).
+
+4. PWA có nút Pay & Exit chưa?
+- ĐÃ CÓ. Nút "Pay & Exit" xuất hiện khi phiên đỗ xe chưa thanh toán và backend cho phép thanh toán trực tuyến (nextAction = CREATE_PAYMENT_INTENT).
+
+5. PWA có gọi POST payment intent không?
+- ĐÃ CÓ. Khi bấm nút "Pay & Exit", PWA sẽ gửi request POST đến endpoint "/pwa/cards/{qrToken}/payment-intents" để tạo cổng giao dịch.
+
+6. PWA có mở PayOS checkoutUrl/QR không?
+- ĐÃ CÓ. PWA hiển thị mã QR thanh toán trực tiếp trên màn hình thông qua mã QR SVG, đồng thời cung cấp nút "Open PayOS" để mở liên kết thanh toán (checkoutUrl) trên tab trình duyệt mới và nút "Copy Link".
+
+7. PWA có polling payment status không?
+- ĐÃ CÓ. Giao diện tự động polling kiểm tra trạng thái giao dịch thông qua API GET "/pwa/payment-intents/{orderCode}" định kỳ mỗi 4 giây (4000ms) cho tới khi nhận trạng thái kết thúc (PAID, FAILED, CANCELLED, EXPIRED).
+
+8. PWA có success/cancel route không?
+- ĐÃ CÓ. Hai route "/pwa/payment/success" và "/pwa/payment/cancel" cùng ánh xạ tới component chung để xử lý và hiển thị thông tin phản hồi sau khi thanh toán từ cổng PayOS.
+
+9. Staff có màn exit cashier chưa?
+- ĐÃ CÓ. Màn hình "/staff/exit" cho phép nhân viên quét thẻ, hiển thị preview kết quả quyết định ra (ALLOW_EXIT, COLLECT_CASH, GRACE_EXPIRED_SURCHARGE), thu tiền mặt và bấm xác nhận hoàn tất cho xe ra.
+
+10. FE có tự mark paid không?
+- KHÔNG. FE hoàn toàn coi Backend là Source of Truth. Trạng thái PAID của phiên đỗ xe được cập nhật trên giao diện chỉ sau khi API polling từ Backend trả về trạng thái PAID thực tế.
+
+11. FE có hỗ trợ chuyển khoản thủ công không, hay chỉ mở PayOS checkout/QR?
+- KHỈ HỖ TRỢ mở thanh toán qua PayOS (checkoutUrl/QR sinh ra từ intent). Không hỗ trợ chuyển khoản thủ công bằng tài khoản cá nhân khác ngoài hệ thống.
+
+12. Demo FE được không?
+- ĐƯỢC. Các màn hình UI, logic xử lý trạng thái và kết nối API đã được xây dựng hoàn chỉnh.
+
+13. Nếu thiếu PayOS env/backend webhook thì FE demo được tới bước nào?
+- Nếu thiếu PayOS env ở backend: Demo chỉ dừng lại ở màn hình Checkout Quote (hiển thị số tiền). Bấm "Pay & Exit" sẽ lỗi (payos_not_configured) không hiển thị được QR/link thanh toán.
+- Nếu thiếu Webhook: Demo được đến bước quét QR thanh toán thành công trên App ngân hàng, nhưng do backend không nhận được cập nhật từ PayOS nên trạng thái phiên đỗ vẫn là PENDING, FE Polling sẽ bị kẹt mãi ở trạng thái chờ thanh toán, không hiển thị được màn hình báo thành công (PaidSuccessPanel).
+
+
+================================================================================
+PHẦN 2: MANAGER PRICING UI
+================================================================================
+
+Audit chi tiết:
+
+Route:
+- Tổng quan: /manager/pricing
+- Luật tính phí: /manager/pricing/time-rules
+- Ma trận giá: /manager/pricing/matrix
+
+Page file:
+- src/app/(protected)/manager/pricing/page.tsx
+- src/app/(protected)/manager/pricing/time-rules/page.tsx
+- src/app/(protected)/manager/pricing/matrix/page.tsx
+
+Main component:
+- PricingOverview (src/features/manager/pricing-overview.tsx)
+- PricingTimeRules (src/features/manager/pricing-time-rules.tsx)
+- PricingMatrix (src/features/manager/pricing-matrix.tsx)
+- PricingPreviewCalculator (src/features/manager/pricing-preview-calculator.tsx)
+
+Service API file:
+- src/service/manager/pricing-api.ts
+
+Types file:
+- src/service/manager/pricing-type.ts
+
+Hooks nếu có:
+- Sử dụng trực tiếp các hooks của React Query (useQuery, useMutation, useQueryClient) trong component.
+
+Navigation/sidebar có link không:
+- CÓ. Trong cấu hình "src/config/navigation.ts" ở nhóm "PARKING_MANAGER", mục "Pricing & Billing" đăng ký đầy đủ các liên kết tới Time Rules, Pricing Matrix, Subscriptions, Invoices, và Debts.
+
+Endpoints gọi:
+- GET /manager/pricing/rules (Lấy danh sách quy định giá)
+- POST /manager/pricing/rules (Tạo mới quy định giá)
+- GET /manager/pricing/rules/{id} (Xem chi tiết quy định giá)
+- PUT /manager/pricing/rules/{id} (Cập nhật quy định giá)
+- PATCH /manager/pricing/rules/{id}/status (Đổi trạng thái ACTIVE/INACTIVE)
+- DELETE /manager/pricing/rules/{id} (Xóa quy định giá)
+- POST /manager/pricing/rules/{id}/preview (Tính thử giá đỗ xe trước)
+
+Behavior:
+- Pricing overview có không? CÓ. Hiển thị thống kê số lượng rule (active, inactive), số loại xe được cấu hình, số lượng bãi đỗ ghi đè luật và 6 rule gần đây.
+- Time rules CRUD có không? CÓ. Hỗ trợ đầy đủ các thao tác Thêm, Sửa, Xóa và đổi trạng thái hoạt động của từng rule.
+- Pricing matrix có không? CÓ. Hiển thị ma trận rút gọn cho phép xem nhanh thông tin giá theo bãi đỗ và loại xe.
+- Preview calculator có không? CÓ. Nhúng trực tiếp tại màn Time Rules, cho phép chọn rule đỗ xe, nhập mốc check-in/check-out để chạy thử tính tiền và hiện chi tiết breakdown.
+- Form fields là gì? Tên quy định giá (name), trạng thái (status - ACTIVE/INACTIVE), bãi đỗ xe (parkingId - bãi đỗ cụ thể hoặc mặc định), loại xe (vehicleTypeId), số phút miễn phí (freeMinutes), số phút block đầu (firstBlockMinutes), giá block đầu (firstBlockPrice), số phút block tiếp theo (nextBlockMinutes), giá block tiếp theo (nextBlockPrice), giá trần ngày (dailyCapPrice), và thời gian ân hạn sau thanh toán (graceMinutesAfterPayment).
+- Có loading/empty/error state không? CÓ. Có Skeleton khi tải dữ liệu, màn hình báo lỗi kèm nút Retry khi API thất bại, màn hình báo trống kèm nút tạo mới khi chưa có dữ liệu.
+- Có validate không? CÓ. Hàm validatePricingRuleForm kiểm tra form nhập: tên không được bỏ trống, các giá trị số phải không âm và hợp lệ.
+- Có dùng real API hay mock? Các chức năng chính (Rules CRUD, Matrix, Preview Calculator) dùng REAL API. Các mục phụ (Subscriptions, Invoices, Debts) vẫn dùng MOCK (MockModulePage dựa trên cấu hình mock-pages.ts).
+- Có manager setup PayOS merchant/config không? KHÔNG. Hoàn toàn thiếu màn hình này.
+
+Kết luận riêng:
+- Manager pricing UI status: COMPLETE (ngoại trừ Subscriptions/Invoices/Debts vẫn đang là mock)
+- Manager PayOS config UI status: MISSING
+
+
+================================================================================
+PHẦN 3: PWA QUOTE UI
+================================================================================
+
+Audit chi tiết:
+
+Route:
+- /pwa/c/[qrToken]
+
+Page file:
+- src/app/pwa/c/[qrToken]/page.tsx
+
+Main component:
+- CardActiveSessionGuide (src/features/pwa/card-active-session-guide.tsx)
+- CheckoutQuotePanel (src/features/pwa/card-active-session-guide.tsx)
+
+Service API:
+- src/service/pwa/api.ts
+
+Types:
+- src/service/pwa/type.ts
+
+Endpoint gọi:
+- GET /pwa/cards/{qrToken}/checkout-quote
+- GET /pwa/cards/{qrToken}/active-session
+
+Behavior:
+- PWA active session page có quote panel không? CÓ. Panel "Checkout quote" nằm ngay dưới sơ đồ và thông tin vị trí đỗ xe của tài xế.
+- Quote hiển thị amount/breakdown/payment status/next action không? CÓ.
+  * Hiển thị số tiền cần trả (Amount due) và loại tiền tệ (VND).
+  * Hiển thị bảng phân rã phí đỗ xe chi tiết (breakdown) tương ứng với số phút đỗ thực tế.
+  * Hiển thị thông tin hành động tiếp theo (nextAction: CREATE_PAYMENT_INTENT, CONTINUE_PAYMENT, v.v.).
+  * Hiển thị trạng thái thanh toán hiện tại (paymentStatus).
+- Khi session đã paid thì UI đổi trạng thái không? CÓ. Khi nhận được trạng thái PAID hoặc nextAction là EXIT_WITHIN_GRACE_PERIOD, panel sẽ chuyển thành màn hình "Payment successful" màu xanh lá, hiển thị thời gian đã trả tiền, thời hạn tối đa phải ra khỏi bãi (Exit deadline) và đồng hồ đếm ngược.
+- Khi chưa có pricing rule thì UI xử lý lỗi không? CÓ. Khi trả về trạng thái NO_PRICING_RULE, giao diện hiển thị thông báo lỗi yêu cầu tài xế liên hệ nhân viên bãi đỗ để cấu hình giá.
+- Có loading/error/retry không? CÓ. Hiển thị thông báo khi đang tải dữ liệu báo giá, bắt lỗi từ API chi tiết và nút "Refresh quote" cho phép người dùng tải lại thủ công.
+
+
+================================================================================
+PHẦN 4: PWA PAYOS PAYMENT UI
+================================================================================
+
+Audit chi tiết:
+
+Route:
+- /pwa/c/[qrToken] (Thực hiện thanh toán)
+- /pwa/payment/success (Trang chuyển hướng thành công)
+- /pwa/payment/cancel (Trang chuyển hướng hủy thanh toán)
+
+Page/component:
+- CheckoutQuoteContent (src/features/pwa/card-active-session-guide.tsx)
+- PaymentPendingPanel (src/features/pwa/card-active-session-guide.tsx)
+- PaymentReturnPage (src/features/pwa/payment-return-page.tsx)
+
+Service API:
+- src/service/pwa/api.ts
+
+Types:
+- src/service/pwa/type.ts
+
+Endpoints gọi:
+- POST /pwa/cards/{qrToken}/payment-intents (Tạo link/QR thanh toán PayOS)
+- GET /pwa/payment-intents/{orderCode} (Thăm dò trạng thái thanh toán)
+
+Behavior:
+- Có nút Pay & Exit không? CÓ.
+- Khi bấm thì gọi create payment intent không? CÓ. Khi bấm, FE gọi mutation createPaymentIntentMutation kết nối tới API POST tạo payment intent.
+- Response dùng checkoutUrl/qrCode/orderCode thế nào?
+  * qrCode: Render mã QR trực tiếp trên PWA bằng thư viện qrcode.react để khách hàng quét trực tiếp.
+  * checkoutUrl: Cung cấp nút "Open PayOS" để mở trang thanh toán chính thức của PayOS trên tab mới, và nút "Copy Link" để sao chép liên kết thanh toán.
+  * orderCode: Lưu trữ để thực hiện polling gọi API kiểm tra trạng thái.
+- FE mở PayOS checkoutUrl bằng window.open/router/link hay render QR? Cả hai. Vẽ QR Code trực tiếp trên giao diện và mở link checkoutUrl qua window.open.
+- Có Continue payment nếu đã có pending intent không? CÓ. Nếu phát hiện đã có phiên thanh toán đang chờ (nextAction = CONTINUE_PAYMENT), giao diện sẽ hiển thị màn hình thanh toán dang dở cùng QR Code cũ và nút mở lại link.
+- Có polling payment status không? CÓ.
+- Polling interval/stop condition thế nào? Polling được thực hiện qua React Query định kỳ mỗi 4 giây (4000ms). Dừng polling khi nhận trạng thái kết thúc (không phải PENDING).
+- Khi PAID thì UI hiển thị success/countdown/exit deadline không? CÓ. Hiển thị màn hình thành công báo giờ hạn phải ra và cập nhật đếm ngược thời gian thực mỗi giây.
+- Có route /pwa/payment/success không? CÓ.
+- Có route /pwa/payment/cancel không? CÓ.
+- FE có tự mark paid không? KHÔNG. FE không tự thay đổi trạng thái, backend mới là source of truth. FE chỉ hiển thị thành công khi API polling từ backend trả về status PAID.
+- Có hỗ trợ manual bank transfer ngoài PayOS không? KHÔNG. Chỉ hỗ trợ thanh toán qua mã QR/link của cổng PayOS được tích hợp.
+
+Kết luận riêng:
+- PWA payment UI status: COMPLETE
+
+
+================================================================================
+PHẦN 5: STAFF EXIT UI
+================================================================================
+
+Audit chi tiết:
+
+Route:
+- /staff/exit
+
+Page file:
+- src/app/(protected)/staff/exit/page.tsx
+
+Main component:
+- StaffExitCashier (src/features/staff/exit-cashier.tsx)
+
+Service API:
+- src/service/staff/api.ts
+
+Types:
+- src/service/staff/type.ts
+
+Endpoints gọi:
+- POST /staff/parking-sessions/exit-preview (Xem trước thông tin và quyết định ra)
+- POST /staff/parking-sessions/complete-exit (Xác nhận mở cổng cho xe ra)
+
+Behavior:
+- Staff scan/nhập cardCode không? CÓ. Hỗ trợ nhập mã thẻ thủ công hoặc quét mã RFID.
+- Có preview decision không? CÓ. Gọi API preview để lấy quyết định ra từ backend.
+- Hiển thị ALLOW_EXIT không? CÓ. Hiện banner xanh báo xe đã thanh toán trực tuyến và trong thời gian ân hạn, nút hành động chính là "Complete Exit".
+- Hiển thị COLLECT_CASH không? CÓ. Hiện banner vàng báo xe chưa thanh toán, nhân viên thu tiền mặt, có ô nhập số tiền thu và nút "Collect Cash & Complete Exit".
+- Hiển thị GRACE_EXPIRED_SURCHARGE không? CÓ. Hiện banner đỏ báo xe đã thanh toán trực tuyến nhưng đỗ quá hạn thời gian cho phép ra, nhân viên thu thêm phụ phí quá hạn bằng tiền mặt và nút "Collect Surcharge & Complete Exit".
+- Complete exit gọi API nào? Gọi API complete-exit truyền vào sessionId, cardCode, paymentMode (ONLINE, CASH, hoặc SURCHARGE_CASH), collectedAmount và note.
+- Sau complete có báo slot released/card reusable không? CÓ. Trong component CompletionSuccess, hệ thống hiển thị thông tin trả về bao gồm Slot status (đã giải phóng slot) và Card status (thẻ đã có thể tái sử dụng).
+- Có loading/error/toast không? CÓ. Có hiệu ứng tải khi gọi API, thông báo lỗi cụ thể từ backend bằng banner cảnh báo, khi thành công hiển thị toast "Gate can open now."
+- Có check workContext/kiosk type ở FE không? CÓ. FE đọc thông tin từ auth store hiển thị Kiosk, Kiosk Type và Parking name đang làm việc. Nếu không có context thì hiện cảnh báo chặn/hạn chế thao tác.
+
+Kết luận riêng:
+- Staff exit UI status: COMPLETE
+
+
+================================================================================
+PHẦN 6: FRONTEND PAYMENT FLOW THEO NGƯỜI DÙNG
+================================================================================
+
+Driver/PWA:
+1. Tài xế quét mã QR đính kèm trên thẻ gửi xe để mở trang PWA.
+2. FE gửi yêu cầu lấy thông tin phiên đỗ (active-session) của thẻ gửi xe.
+3. FE gửi yêu cầu lấy thông tin báo giá thanh toán hiện tại (checkout-quote).
+4. FE hiển thị thông tin số tiền đỗ xe phải trả và chi tiết cách tính phí (breakdown).
+5. Tài xế kiểm tra thông tin và nhấn vào nút "Pay & Exit".
+6. FE gửi yêu cầu tạo cổng thanh toán (payment-intents) lên backend.
+7. FE hiển thị mã QR thanh toán PayOS trên màn hình và tự động mở tab thanh toán của PayOS.
+8. FE thiết lập cơ chế polling định kỳ 4 giây một lần để kiểm tra trạng thái thanh toán từ backend.
+9. Khi backend trả về trạng thái PAID (thanh toán thành công), FE cập nhật giao diện hiển thị hạn giờ phải di chuyển xe ra cổng và đồng hồ đếm ngược.
+10. Tài xế điều khiển xe ra cổng kiểm soát trong thời gian đếm ngược.
+
+Staff:
+1. Nhân viên truy cập vào màn hình Exit Cashier (/staff/exit).
+2. Khi xe tới làn ra, nhân viên nhập hoặc quét mã thẻ RFID của xe.
+3. Nhân viên nhấn nút "Preview" để gửi yêu cầu kiểm tra quyết định cho xe ra (exit-preview).
+4. Hệ thống hiển thị quyết định:
+   - Nếu ALLOW_EXIT (Đã thanh toán): Nhân viên nhấn "Complete Exit" để mở cổng và giải phóng slot.
+   - Nếu COLLECT_CASH (Chưa thanh toán): Nhân viên thu tiền mặt bằng số tiền hiển thị, nhập số tiền thực tế và nhấn "Collect Cash & Complete Exit".
+   - Nếu GRACE_EXPIRED_SURCHARGE (Quá hạn): Nhân viên thu tiền phụ phí quá hạn bằng tiền mặt, nhập số tiền và nhấn "Collect Surcharge & Complete Exit".
+5. Hệ thống hoàn tất giao dịch, mở cổng ra, giải phóng slot đỗ xe và thẻ RFID về trạng thái sẵn sàng.
+
+Manager:
+1. Quản lý truy cập vào các màn hình Pricing & Billing (/manager/pricing), Time Rules, hoặc Pricing Matrix.
+2. Quản lý cấu hình, tạo mới hoặc chỉnh sửa các quy định tính phí theo block thời gian.
+3. Quản lý sử dụng Preview Calculator để nhập thử thời gian check-in/check-out nhằm kiểm tra trước số tiền tính toán và breakdown phí trước khi áp dụng.
+
+
+================================================================================
+PHẦN 7: DEMO READINESS FE
+================================================================================
+
+- Demo Manager pricing từ FE được không? ĐƯỢC. Hoàn toàn sẵn sàng kết nối API thật.
+- Demo PWA quote từ FE được không? ĐƯỢC. Hiển thị thông tin và báo giá thời gian thực qua API thật.
+- Demo PWA PayOS thật được không? ĐƯỢC. Với điều kiện Backend phải cài đặt thông số tài khoản PayOS và chạy Webhook tunnel công khai.
+- Cần backend có PayOS env không? CÓ. Cần cấu hình Client ID, API Key, và Checksum Key của PayOS.
+- Cần webhook public URL không? CÓ. Cần có public URL để PayOS gửi thông báo thanh toán thành công về Backend, cập nhật trạng thái PAID.
+- Nếu không có webhook thật, PWA có bị kẹt PENDING không? CÓ. PWA polling liên tục sẽ luôn nhận về trạng thái PENDING do backend không được cập nhật trạng thái PAID từ PayOS.
+- Có fallback demo bằng Swagger/Bruno không? CÓ. Có thể gọi tay API giả lập webhook từ PayOS về Backend hoặc cập nhật trạng thái PAID trực tiếp bằng Swagger/Bruno để FE polling nhận được trạng thái PAID và hoàn tất.
+- Cần chuẩn bị data gì?
+  * Phiên đỗ xe hoạt động thực tế gắn với mã qrToken hợp lệ.
+  * Cấu hình luật tính phí (ACTIVE) khớp với bãi đỗ xe và loại xe đó để tạo được checkout quote.
+  * Cấu hình tài khoản PayOS ở backend.
+  * orderCode sinh ra để hỗ trợ polling/giả lập webhook.
+
+
+================================================================================
+PHẦN 8: MISSING/RISK
+================================================================================
+
+- Thiếu giao diện quản lý cấu hình tài khoản PayOS (merchant credentials) trên Manager UI, đang phải cấu hình cứng ở backend.
+- Thiếu giao diện cài đặt cổng thanh toán (payment provider setup) chung ở phía Admin.
+- Thiếu hình thức chuyển khoản thủ công (manual bank transfer) qua QR tài khoản cá nhân, phụ thuộc 100% vào việc PayOS hoạt động bình thường.
+- Không cho phép người dùng lựa chọn phương thức thanh toán khác ngoài PayOS (ví dụ như MoMo, VNPAY).
+- Trang quản lý hóa đơn (Invoices), Đăng ký tháng (Subscriptions), Nợ & nhắc nhở (Debts) phía Manager vẫn đang sử dụng màn hình giả lập (MockModulePage).
+- Thiếu các nút/logic xử lý hoàn tiền (refund) hoặc hủy giao dịch khi gặp sự cố.
+- Rủi ro bị kẹt PENDING trên PWA khi demo local nếu thiếu webhook tunnel công khai (ngrok).
+- Rủi ro chưa xử lý chi tiết các mã lỗi giao dịch ngân hàng cụ thể trên giao diện người dùng.
+
+
+================================================================================
+PHẦN 9: CÂU TRẢ LỜI KHI THẦY HỎI VỀ FE PAYMENT
+================================================================================
+
+1. Tài xế thanh toán ở đâu?
+Trả lời: Tài xế quét mã QR in trên thẻ đỗ xe hoặc truy cập liên kết PWA để xem báo giá và thanh toán trực tiếp qua QR hoặc cổng thanh toán PayOS trên điện thoại cá nhân.
+
+2. FE có tự xác nhận đã thanh toán không?
+Trả lời: Không. FE hoàn toàn coi Backend là Source of Truth. FE chỉ hiển thị màn hình thanh toán thành công khi kết quả API polling từ Backend trả về trạng thái PAID thực tế.
+
+3. PayOS checkout mở như thế nào?
+Trả lời: FE hiển thị mã QR PayOS trực tiếp trên PWA để tài xế quét bằng App ngân hàng, đồng thời cung cấp nút "Open PayOS" mở trang thanh toán chính thức của PayOS trên tab trình duyệt mới.
+
+4. Nếu user đóng tab PayOS thì sao?
+Trả lời: Trạng thái trên PWA vẫn là "Payment pending", người dùng có thể bấm "Open PayOS" lại để tiếp tục hoặc bấm "Refresh" để cập nhật trạng thái nếu đã thanh toán trên app ngân hàng.
+
+5. Nếu webhook chưa về thì PWA hiển thị gì?
+Trả lời: PWA sẽ hiển thị trạng thái chờ thanh toán ("Payment pending") kèm mã QR và liên tục polling kiểm tra trạng thái từ backend mỗi 4 giây.
+
+6. Nếu đã paid thì PWA hiển thị gì?
+Trả lời: PWA hiển thị thông báo "Payment successful" màu xanh lá, hiển thị thời hạn tối đa phải cho xe ra khỏi bãi (Exit deadline) và đếm ngược thời gian thực.
+
+7. Manager setup giá ở đâu?
+Trả lời: Quản lý đăng nhập vào trang Manager, truy cập mục Pricing & Billing -> Time Rules để tạo mới hoặc cập nhật các quy định tính phí theo block giờ.
+
+8. Manager setup tài khoản PayOS ở đâu?
+Trả lời: Hiện tại hệ thống chưa hỗ trợ giao diện cấu hình tài khoản PayOS trên frontend Manager. Thông số kết nối PayOS đang được cấu hình trực tiếp ở file biến môi trường của Backend.
+
+9. Staff biết xe được ra hay chưa bằng cách nào?
+Trả lời: Tại cổng ra, nhân viên quét/nhập thẻ xe trên màn hình Exit Cashier. Hệ thống sẽ gọi API kiểm tra trạng thái và hiển thị banner ALLOW_EXIT màu xanh lá nếu xe đã thanh toán trực tuyến hợp lệ.
+
+10. Nếu chưa thanh toán thì staff làm gì?
+Trả lời: Nếu màn hình hiện COLLECT_CASH hoặc GRACE_EXPIRED_SURCHARGE, nhân viên sẽ tiến hành thu tiền mặt tương ứng từ tài xế, nhập số tiền đã thu vào hệ thống và bấm xác nhận để mở cổng cho xe ra.
+
+
+================================================================================
+PHẦN 10: CODE OPENING GUIDE
+================================================================================
+
+Khi nói về: Màn hình quản lý quy định tính phí đỗ xe (Time Rules)
+Mở file: src/features/manager/pricing-time-rules.tsx
+Component/hook/service: PricingTimeRules, PricingRuleDialog
+Function: PricingTimeRules, PricingRuleDialog, validatePricingRuleForm
+Nói gì: Đây là giao diện quản lý danh sách quy định tính phí đỗ xe. Chứa form PricingRuleDialog để thêm/sửa quy định đỗ xe với các tham số block đầu, block tiếp theo, giá trần ngày, thời gian ân hạn, và thực hiện validate dữ liệu thông qua hàm validatePricingRuleForm.
+
+Khi nói về: API kết nối dữ liệu tính phí của Manager
+Mở file: src/service/manager/pricing-api.ts và src/service/manager/pricing-type.ts
+Component/hook/service: listPricingRulesApi, createPricingRuleApi, updatePricingRuleApi, deletePricingRuleApi, previewPricingRuleApi
+Function: listPricingRulesApi, createPricingRuleApi, updatePricingRuleApi, deletePricingRuleApi, previewPricingRuleApi
+Nói gì: Nơi định nghĩa các API endpoint kết nối tới backend để CRUD quy định tính phí (/manager/pricing/rules) và chạy thử tính toán preview giá (/manager/pricing/rules/{id}/preview). File pricing-type.ts định nghĩa đầy đủ interface dữ liệu đầu vào và đầu ra.
+
+Khi nói về: Giao diện hiển thị thông tin phiên đỗ và sơ đồ PWA của tài xế
+Mở file: src/features/pwa/card-active-session-guide.tsx
+Component/hook/service: CardActiveSessionGuide, ActiveSessionContent, MapSection
+Function: CardActiveSessionGuide, ActiveSessionContent
+Nói gì: Component CardActiveSessionGuide quản lý thông tin phiên đỗ xe thực tế của tài xế, hiển thị các thông tin chi tiết xe, bãi đỗ, slot đỗ và ghim vị trí xe trực tiếp trên sơ đồ mặt bằng bãi xe (MapSection).
+
+Khi nói về: Báo giá thanh toán đỗ xe trên PWA
+Mở file: src/features/pwa/card-active-session-guide.tsx
+Component/hook/service: CheckoutQuotePanel, CheckoutQuoteContent, QuoteSummary, PricingBreakdown
+Function: CheckoutQuotePanel, CheckoutQuoteContent
+Nói gì: CheckoutQuotePanel tải thông tin báo giá từ API checkout-quote. CheckoutQuoteContent hiển thị số tiền phải trả và chi tiết breakdown cách tính tiền theo các khối thời gian đỗ.
+
+Khi nói về: API tạo giao dịch thanh toán PayOS trên PWA
+Mở file: src/service/pwa/api.ts và src/features/pwa/card-active-session-guide.tsx
+Component/hook/service: createPwaPaymentIntentApi, createPaymentIntentMutation
+Function: createPwaPaymentIntentApi
+Nói gì: Khi bấm nút "Pay & Exit", mutation gọi API POST /pwa/cards/{qrToken}/payment-intents để yêu cầu backend tạo link thanh toán PayOS mới (trả về checkoutUrl, qrCode, orderCode).
+
+Khi nói về: Trang phản hồi kết quả sau khi khách hàng thanh toán qua PayOS
+Mở file: src/features/pwa/payment-return-page.tsx
+Component/hook/service: PaymentReturnPage, PaymentReturnContent
+Function: PaymentReturnPage, PaymentReturnContent
+Nói gì: Trang phản hồi sau thanh toán của PWA, nhận tham số kind từ URL query để hiển thị banner thành công hoặc hủy thanh toán, hiển thị thông tin hóa đơn và nút refresh cập nhật trạng thái thanh toán từ backend.
+
+Khi nói về: Cơ chế polling tự động cập nhật trạng thái thanh toán trên PWA
+Mở file: src/features/pwa/card-active-session-guide.tsx
+Component/hook/service: PaymentPendingPanel, getPwaPaymentIntentApi
+Function: PaymentPendingPanel
+Nói gì: Trong PaymentPendingPanel, React Query tự động polling gọi API getPwaPaymentIntentApi mỗi 4 giây để kiểm tra trạng thái đơn hàng. Polling sẽ tự động dừng khi trạng thái giao dịch chuyển sang PAID, FAILED, CANCELLED, hoặc EXPIRED.
+
+Khi nói về: Giao diện xử lý xe ra của nhân viên trực cổng
+Mở file: src/features/staff/exit-cashier.tsx
+Component/hook/service: StaffExitCashier, PreviewDecision, CompletionSuccess
+Function: StaffExitCashier, onPreview, onConfirmComplete
+Nói gì: Giao diện của nhân viên trực cổng ra. Cho phép nhập thẻ RFID để preview quyết định từ backend (ALLOW_EXIT, COLLECT_CASH, hoặc GRACE_EXPIRED_SURCHARGE) và gọi API xác nhận hoàn tất mở cổng cho xe ra (complete-exit).
+
+Khi nói về: API và kiểu dữ liệu xử lý xe ra của nhân viên
+Mở file: src/service/staff/api.ts và src/service/staff/type.ts
+Component/hook/service: previewParkingSessionExitApi, completeParkingSessionExitApi
+Function: previewParkingSessionExitApi, completeParkingSessionExitApi
+Nói gì: Định nghĩa API kết nối backend phục vụ xem trước kết quả ra (POST /staff/parking-sessions/exit-preview) và xác nhận mở cổng hoàn tất (POST /staff/parking-sessions/complete-exit). File type.ts mô tả interface dữ liệu chi tiết của yêu cầu và phản hồi.
+
+Khi nói về: Liên kết menu Pricing
+Mở file: src/config/navigation.ts
+Component/hook/service: navigationGroups
+Function: navigationGroups
+Nói gì: Đăng ký liên kết điều hướng mục "Pricing & Billing" cho role PARKING_MANAGER, trỏ tới các trang con Time Rules và Pricing Matrix.
+
+
+================================================================================
+PHẦN 11: FINAL VERDICT
+================================================================================
+
+Manager pricing UI status: COMPLETE
+Manager PayOS config UI status: MISSING
+PWA quote UI status: COMPLETE
+PWA payment UI status: COMPLETE
+Staff exit UI status: COMPLETE
+Demo readiness: READY (Yêu cầu đầy đủ cấu hình backend và webhook tunnel)
+
+5 blocker/risk trước demo thật:
+1. Thiếu giao diện quản lý cấu hình tài khoản PayOS (merchant credentials) trên Manager UI, đang phải cấu hình cứng ở backend.
+2. Cần cấu hình Webhook công khai (hoặc dùng tunnel như ngrok) để backend nhận sự kiện PAID từ PayOS, nếu không PWA sẽ bị kẹt ở màn hình PENDING khi polling.
+3. Các trang quản lý phụ trong Pricing (Subscriptions, Invoices, Debt & Reminders) vẫn đang ở trạng thái Mock (MockModulePage), chưa thể demo thực tế dữ liệu.
+4. Rủi ro xử lý lỗi của cổng thanh toán chưa đầy đủ trên FE (ví dụ khi người dùng hủy thanh toán hoặc giao dịch bị lỗi trên ngân hàng, FE chỉ hiển thị thông báo lỗi chung từ backend).
+5. Chưa hỗ trợ hình thức thanh toán chuyển khoản thủ công qua QR tài khoản cá nhân, phụ thuộc 100% vào việc PayOS hoạt động bình thường.
