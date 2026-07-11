@@ -71,6 +71,8 @@ export interface StaffExitPreviewResponse {
     totalAmountDue?: number | null;
     penaltyCases?: StaffPenaltyCase[];
     hasUnpaidPenalties?: boolean | null;
+    hasPendingViolationReview?: boolean | null;
+    pendingViolationReportCount?: number | null;
     currency?: string | null;
     paymentStatus?: string | null;
     paidAt?: string | null;
@@ -85,6 +87,7 @@ export interface StaffExitPreviewResponse {
 export type PenaltyCaseStatus =
     | 'REPORTED'
     | 'APPLIED'
+    | 'REJECTED'
     | 'WAIVED'
     | 'COLLECTED';
 
@@ -146,6 +149,40 @@ export interface StaffCompleteExitResponse {
     slotStatus?: string | null;
     cardStatus?: string | null;
     message?: string | null;
+}
+
+export interface StaffViolationReportResponse {
+    id: string;
+    status: PenaltyCaseStatus | string;
+    reportedAt?: string | null;
+    victimPlateNumber?: string | null;
+    victimSessionId?: string | null;
+    oldSlotCode?: string | null;
+    replacementSlotCode?: string | null;
+    reportedOffenderPlateNumber?: string | null;
+    offenderSessionId?: string | null;
+    matchedOffenderPlateNumber?: string | null;
+    evidenceImageUrl?: string | null;
+    victimEntryImageUrl?: string | null;
+    victimLicensePlateImageUrl?: string | null;
+    offenderEntryImageUrl?: string | null;
+    offenderLicensePlateImageUrl?: string | null;
+    reportNote?: string | null;
+    reviewedByStaffId?: string | null;
+    reviewedByStaffName?: string | null;
+    reviewedAt?: string | null;
+    reviewNote?: string | null;
+    appliedAmount?: number | null;
+    currency?: string | null;
+}
+
+export interface StaffViolationReportApproveRequest {
+    confirmedOffenderPlateNumber: string;
+    note?: string;
+}
+
+export interface StaffViolationReportRejectRequest {
+    note: string;
 }
 
 export interface StaffLostCardPhotoPresignUploadRequest {

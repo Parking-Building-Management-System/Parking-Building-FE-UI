@@ -23,6 +23,9 @@ import type {
     StaffCashShiftCloseRequest,
     StaffCashSettlementPreviewResponse,
     StaffCurrentCashShiftResponse,
+    StaffViolationReportApproveRequest,
+    StaffViolationReportRejectRequest,
+    StaffViolationReportResponse,
 } from '@/service/staff/type';
 
 const STAFF_ENDPOINT = '/staff';
@@ -53,6 +56,9 @@ export const staffQueryKeys = {
         'current',
         'settlement-preview',
     ] as const,
+    violationReports: ['staff', 'violation-reports'] as const,
+    violationReport: (reportId: string) =>
+        ['staff', 'violation-reports', reportId] as const,
 };
 
 const normalizeOptionalString = (value: unknown) => {
@@ -202,6 +208,53 @@ export const completeParkingSessionExitApi = async (
         AxiosResponse<ApiResponse<StaffCompleteExitResponse>>,
         StaffCompleteExitRequest
     >(`${STAFF_ENDPOINT}/parking-sessions/complete-exit`, data);
+
+    return getApiResult(response);
+};
+
+export const listViolationReportsApi = async (params?: {
+    status?: string;
+    reportedPlate?: string;
+    from?: string;
+    to?: string;
+}) => {
+    const response = await apiClient.get<
+        ApiResponse<StaffViolationReportResponse[]>
+    >(`${STAFF_ENDPOINT}/violation-reports`, { params });
+
+    return getApiResult(response);
+};
+
+export const getViolationReportApi = async (reportId: string) => {
+    const response = await apiClient.get<ApiResponse<StaffViolationReportResponse>>(
+        `${STAFF_ENDPOINT}/violation-reports/${reportId}`,
+    );
+
+    return getApiResult(response);
+};
+
+export const approveViolationReportApi = async (
+    reportId: string,
+    data: StaffViolationReportApproveRequest,
+) => {
+    const response = await apiClient.post<
+        ApiResponse<StaffViolationReportResponse>,
+        AxiosResponse<ApiResponse<StaffViolationReportResponse>>,
+        StaffViolationReportApproveRequest
+    >(`${STAFF_ENDPOINT}/violation-reports/${reportId}/approve`, data);
+
+    return getApiResult(response);
+};
+
+export const rejectViolationReportApi = async (
+    reportId: string,
+    data: StaffViolationReportRejectRequest,
+) => {
+    const response = await apiClient.post<
+        ApiResponse<StaffViolationReportResponse>,
+        AxiosResponse<ApiResponse<StaffViolationReportResponse>>,
+        StaffViolationReportRejectRequest
+    >(`${STAFF_ENDPOINT}/violation-reports/${reportId}/reject`, data);
 
     return getApiResult(response);
 };

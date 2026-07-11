@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useMutation } from '@tanstack/react-query';
 import {
     AlertCircle,
@@ -54,6 +55,7 @@ const terminalErrorCodes = [
     'SESSION_NOT_IN_KIOSK_PARKING',
     'PAYMENT_REQUIRED',
     'GRACE_PERIOD_EXPIRED',
+    'PENDING_VIOLATION_REVIEW_REQUIRED',
 ];
 
 const formatDateTime = (value?: string | null) => {
@@ -299,6 +301,7 @@ export function StaffExitCashier() {
         () =>
             !!preview?.sessionId &&
             !!getPaymentMode(getExitDecision(preview)) &&
+            !preview?.hasPendingViolationReview &&
             !completeExitMutation.isPending,
         [completeExitMutation.isPending, preview],
     );
@@ -559,6 +562,8 @@ function PreviewDecision({
     const currency = preview.currency ?? 'VND';
     const penaltyAmount = preview.penaltyAmountDue ?? 0;
     const hasPenalty = penaltyAmount > 0;
+    const hasPendingViolationReview =
+        preview.hasPendingViolationReview === true;
     const cashCollectionRequired = !isPaidOnline || hasPenalty;
 
     if (isBlocked) {
@@ -692,6 +697,23 @@ function PreviewDecision({
                     currency={currency}
                 />
                 <EntryVerificationPhotos preview={preview} />
+
+                {hasPendingViolationReview ? (
+                    <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+                        <p className="font-semibold">Violation review required</p>
+                        <p className="text-muted-foreground mt-1">
+                            This vehicle is linked to{' '}
+                            {preview.pendingViolationReportCount ?? 1} pending
+                            occupied-slot report. Exit remains blocked until the
+                            report is approved or rejected.
+                        </p>
+                        <Button asChild className="mt-3" size="sm" variant="outline">
+                            <Link href="/staff/violation-reports">
+                                Open violation reports
+                            </Link>
+                        </Button>
+                    </div>
+                ) : null}
 
                 {cashCollectionRequired ? (
                     <div className="grid gap-3 md:grid-cols-2">
