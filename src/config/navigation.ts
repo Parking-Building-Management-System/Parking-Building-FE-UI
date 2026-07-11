@@ -24,6 +24,7 @@ export interface NavigationItem {
     icon: ComponentType<{ className?: string }>;
     roles: Role[];
     showOverviewChild?: boolean;
+    navigateOnTrigger?: boolean;
     children?: NavigationChildItem[];
 }
 
@@ -117,6 +118,8 @@ export const navigationGroups: NavigationGroup[] = [
                 href: '/manager/facility/parkings',
                 icon: CarFront,
                 roles: ['PARKING_MANAGER'],
+                showOverviewChild: false,
+                navigateOnTrigger: true,
                 children: [
                     {
                         title: 'Parkings',

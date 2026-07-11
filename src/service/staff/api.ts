@@ -218,9 +218,18 @@ export const listViolationReportsApi = async (params?: {
     from?: string;
     to?: string;
 }) => {
+    const { reportedPlate, ...filters } = params ?? {};
+    const normalizedReportedPlate = reportedPlate?.trim();
     const response = await apiClient.get<
         ApiResponse<StaffViolationReportResponse[]>
-    >(`${STAFF_ENDPOINT}/violation-reports`, { params });
+    >(`${STAFF_ENDPOINT}/violation-reports`, {
+        params: {
+            ...filters,
+            ...(normalizedReportedPlate
+                ? { reportedPlate: normalizedReportedPlate }
+                : {}),
+        },
+    });
 
     return getApiResult(response);
 };

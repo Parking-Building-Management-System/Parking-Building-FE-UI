@@ -356,6 +356,7 @@ function NavItem({
     pendingDeviceApprovals: number;
     pendingDeviceApprovalsLoading: boolean;
 }) {
+    const router = useRouter();
     const isActive = isLeafActive(pathname, item.href);
     const isExpanded = itemContainsCurrentRoute(pathname, item);
 
@@ -384,6 +385,11 @@ function NavItem({
                     'h-8 rounded-lg px-2.5 py-0 text-sm hover:no-underline',
                     isExpanded && 'text-foreground',
                 )}
+                onClick={() => {
+                    if (item.navigateOnTrigger) {
+                        router.push(item.href);
+                    }
+                }}
             >
                 <span className="flex min-w-0 items-center gap-1.5">
                     {createElement(item.icon, {
