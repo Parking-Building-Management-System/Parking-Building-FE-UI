@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, MoreHorizontal, Pencil, Plus } from 'lucide-react';
+import { Eye, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,7 @@ import {
 import { getErrorMessage } from '@/features/admin/error-message';
 import {
     createParkingApi,
+    deleteParkingApi,
     listParkingsApi,
     managerFacilityQueryKeys,
     updateParkingApi,
@@ -59,9 +60,17 @@ interface ParkingDialogState {
     parking?: ParkingResponse;
 }
 
+interface DeleteParkingDialogState {
+    open: boolean;
+    parking?: ParkingResponse;
+}
+
 export function ParkingManagement() {
     const queryClient = useQueryClient();
     const [dialog, setDialog] = useState<ParkingDialogState>({ open: false });
+    const [deleteDialog, setDeleteDialog] = useState<DeleteParkingDialogState>({
+        open: false,
+    });
     const { data, error, isError, isLoading } = useQuery({
         queryKey: managerFacilityQueryKeys.parkings,
         queryFn: listParkingsApi,
@@ -87,6 +96,25 @@ export function ParkingManagement() {
         onError: (error) => {
             toast.error(
                 getErrorMessage(error, 'Failed to update parking status.'),
+            );
+        },
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: deleteParkingApi,
+        onSuccess: (_, parkingId) => {
+            toast.success('Parking and its owned data were permanently deleted.');
+            queryClient.removeQueries({
+                queryKey: managerFacilityQueryKeys.topology(parkingId),
+            });
+            queryClient.invalidateQueries({
+                queryKey: managerFacilityQueryKeys.parkings,
+            });
+            setDeleteDialog({ open: false });
+        },
+        onError: (deleteError) => {
+            toast.error(
+                getErrorMessage(deleteError, 'Failed to delete the parking.'),
             );
         },
     });
@@ -199,6 +227,19 @@ export function ParkingManagement() {
                                                         })
                                                     }
                                                 />
+                                                <Button
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        setDeleteDialog({
+                                                            open: true,
+                                                            parking,
+                                                        })
+                                                    }
+                                                >
+                                                    <Trash2 data-icon="inline-start" />
+                                                    Delete
+                                                </Button>
                                             </div>
                                         </TableCell>
                                     </TableRow>
@@ -230,7 +271,85 @@ export function ParkingManagement() {
                     }))
                 }
             />
+            <DeleteParkingDialog
+                key={deleteDialog.parking?.id ?? 'none'}
+                open={deleteDialog.open}
+                parking={deleteDialog.parking}
+                pending={deleteMutation.isPending}
+                onConfirm={(parking) => deleteMutation.mutate(parking.id)}
+                onOpenChange={(open) =>
+                    setDeleteDialog((current) => ({
+                        ...current,
+                        open,
+                        parking: open ? current.parking : undefined,
+                    }))
+                }
+            />
         </div>
+    );
+}
+
+function DeleteParkingDialog({
+    open,
+    parking,
+    pending,
+    onConfirm,
+    onOpenChange,
+}: {
+    open: boolean;
+    parking?: ParkingResponse;
+    pending: boolean;
+    onConfirm: (parking: ParkingResponse) => void;
+    onOpenChange: (open: boolean) => void;
+}) {
+    const [confirmationCode, setConfirmationCode] = useState('');
+    const canDelete =
+        !!parking && confirmationCode.trim().toUpperCase() === parking.code.toUpperCase();
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Delete parking permanently</DialogTitle>
+                    <DialogDescription>
+                        {parking
+                            ? `This will permanently remove ${parking.name} (${parking.code}) and its floors, zones, slots, sessions, payments, reports, kiosks, fire safety records, and settlements.`
+                            : 'Select a parking to delete.'}
+                    </DialogDescription>
+                </DialogHeader>
+                <label className="space-y-2">
+                    <span className="text-sm font-medium">
+                        Type the parking code to confirm
+                    </span>
+                    <Input
+                        value={confirmationCode}
+                        placeholder={parking?.code ?? 'Parking code'}
+                        disabled={pending}
+                        onChange={(event) =>
+                            setConfirmationCode(event.target.value)
+                        }
+                    />
+                </label>
+                <DialogFooter>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={pending}
+                        onClick={() => onOpenChange(false)}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="destructive"
+                        disabled={!canDelete || pending || !parking}
+                        onClick={() => parking && onConfirm(parking)}
+                    >
+                        {pending ? 'Deleting...' : 'Delete permanently'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 

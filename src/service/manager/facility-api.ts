@@ -199,6 +199,10 @@ export const updateParkingApi = async (id: string, data: ParkingRequest) => {
     return getApiResult(response);
 };
 
+export const deleteParkingApi = async (id: string) => {
+    await apiClient.delete(`${MANAGER_ENDPOINT}/parkings/${id}`);
+};
+
 export const toggleParkingStatusApi = async (id: string) => {
     const response = await apiClient.patch<ApiResponse<ParkingStatusResponse>>(
         `${MANAGER_ENDPOINT}/parkings/${id}/status`,

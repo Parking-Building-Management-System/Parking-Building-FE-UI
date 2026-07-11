@@ -220,6 +220,9 @@ export function SlotManagement() {
     const canGoPrevious = page > 0;
     const canGoNext = totalPages > 0 && page + 1 < totalPages;
     const zones = zonesQuery.data ?? [];
+    const selectedZone = zones.find((zone) => zone.id === zoneId);
+    const selectedZoneIsFull =
+        !!selectedZone && selectedZone.slotCount >= selectedZone.capacity;
 
     const toggleSlot = (slotId: string, checked: boolean) => {
         setSelectedIds((current) =>
@@ -258,7 +261,7 @@ export function SlotManagement() {
                     description="Search tenant slots, create slots under a zone, and update individual or bulk statuses."
                 />
                 <Button
-                    disabled={zoneId === ALL_ZONES}
+                    disabled={zoneId === ALL_ZONES || selectedZoneIsFull}
                     onClick={() => setDialog({ open: true })}
                 >
                     <Plus data-icon="inline-start" />
@@ -332,7 +335,7 @@ export function SlotManagement() {
                             <SelectItem value={ALL_ZONES}>All zones</SelectItem>
                             {zones.map((zone) => (
                                 <SelectItem key={zone.id} value={zone.id}>
-                                    {zone.name}
+                                    {zone.name} ({zone.slotCount}/{zone.capacity})
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -568,6 +571,7 @@ export function SlotManagement() {
                 open={dialog.open}
                 slot={dialog.slot}
                 zoneId={zoneId === ALL_ZONES ? '' : zoneId}
+                zone={selectedZone}
                 onOpenChange={(open) =>
                     setDialog((current) => ({
                         ...current,
@@ -673,11 +677,13 @@ function SlotDialog({
     open,
     slot,
     zoneId,
+    zone,
     onOpenChange,
 }: {
     open: boolean;
     slot?: SlotResponse;
     zoneId: string;
+    zone?: { name: string; capacity: number; slotCount: number };
     onOpenChange: (open: boolean) => void;
 }) {
     const queryClient = useQueryClient();
@@ -713,8 +719,11 @@ function SlotDialog({
                         {slot ? 'Edit slot' : 'Create slot'}
                     </DialogTitle>
                     <DialogDescription>
-                        Create uses the selected zone. Slot updates keep the
-                        existing backend parent relationships.
+                        {slot
+                            ? 'Slot updates keep the existing backend parent relationships.'
+                            : zone
+                              ? `${zone.name}: ${zone.slotCount}/${zone.capacity} slots in use.`
+                              : 'Create uses the selected zone.'}
                     </DialogDescription>
                 </DialogHeader>
                 {!slot && !zoneId ? (
@@ -771,7 +780,15 @@ function SlotDialog({
                             </SelectContent>
                         </Select>
                         <DialogFooter>
-                            <Button type="submit" disabled={mutation.isPending}>
+                        <Button
+                            type="submit"
+                            disabled={
+                                mutation.isPending ||
+                                (!slot &&
+                                    !!zone &&
+                                    zone.slotCount >= zone.capacity)
+                            }
+                        >
                                 {mutation.isPending ? 'Saving...' : 'Save'}
                             </Button>
                         </DialogFooter>

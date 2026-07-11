@@ -187,6 +187,7 @@ export interface ZoneResponse {
     vehicleTypeCode: string | null;
     vehicleTypeName: string | null;
     capacity: number;
+    slotCount: number;
     status: ZoneStatus;
 }
 
