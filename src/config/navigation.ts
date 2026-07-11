@@ -1,22 +1,16 @@
 import type { ComponentType } from 'react';
 import {
     Activity,
-    AlertTriangle,
-    BarChart3,
     Building2,
     CarFront,
     ClipboardList,
     CreditCard,
     Database,
     DoorOpen,
-    Gauge,
     LayoutDashboard,
-    Monitor,
     Receipt,
-    Settings,
     ShieldCheck,
     ShieldAlert,
-    Siren,
     UsersRound,
 } from 'lucide-react';
 
@@ -80,7 +74,7 @@ export const navigationGroups: NavigationGroup[] = [
             },
             {
                 title: 'System Health',
-                href: '/admin/system-health',
+                href: '/admin/system-health/api',
                 icon: Activity,
                 roles: ['SYSTEM_ADMIN'],
                 showOverviewChild: false,
@@ -97,7 +91,7 @@ export const navigationGroups: NavigationGroup[] = [
             },
             {
                 title: 'Audit & Security',
-                href: '/admin/audit',
+                href: '/admin/audit/logs',
                 icon: ShieldCheck,
                 roles: ['SYSTEM_ADMIN'],
                 showOverviewChild: false,
@@ -119,14 +113,8 @@ export const navigationGroups: NavigationGroup[] = [
         title: 'Parking Manager',
         items: [
             {
-                title: 'Dashboard',
-                href: '/manager',
-                icon: Gauge,
-                roles: ['PARKING_MANAGER'],
-            },
-            {
                 title: 'Facility Setup',
-                href: '/manager/facility',
+                href: '/manager/facility/parkings',
                 icon: CarFront,
                 roles: ['PARKING_MANAGER'],
                 children: [
@@ -162,7 +150,7 @@ export const navigationGroups: NavigationGroup[] = [
             },
             {
                 title: 'Staff & Devices',
-                href: '/manager/staff-devices',
+                href: '/manager/staff-devices/staff',
                 icon: UsersRound,
                 roles: ['PARKING_MANAGER'],
                 children: [
@@ -178,50 +166,20 @@ export const navigationGroups: NavigationGroup[] = [
                         title: 'Device Approvals',
                         href: '/manager/staff-devices/device-approvals',
                     },
-                    {
-                        title: 'Kill Switch',
-                        href: '/manager/staff-devices/kill-switch',
-                    },
                 ],
             },
             {
-                title: 'Operations',
-                href: '/manager/operations',
-                icon: Monitor,
+                title: 'Shift Settlements',
+                href: '/manager/operations/shift-settlements',
+                icon: ClipboardList,
                 roles: ['PARKING_MANAGER'],
-                children: [
-                    {
-                        title: 'Live Monitor',
-                        href: '/manager/operations/live-monitor',
-                    },
-                    {
-                        title: 'Active Sessions',
-                        href: '/manager/operations/sessions',
-                    },
-                    {
-                        title: 'Entry / Exit Logs',
-                        href: '/manager/operations/logs',
-                    },
-                    {
-                        title: 'Shift Settlements',
-                        href: '/manager/operations/shift-settlements',
-                    },
-                    {
-                        title: 'Exceptions',
-                        href: '/manager/operations/exceptions',
-                    },
-                ],
             },
             {
                 title: 'Pricing & Billing',
-                href: '/manager/pricing',
+                href: '/manager/pricing/config',
                 icon: CreditCard,
                 roles: ['PARKING_MANAGER'],
                 children: [
-                    {
-                        title: 'Overview',
-                        href: '/manager/pricing',
-                    },
                     {
                         title: 'Pricing Config',
                         href: '/manager/pricing/config',
@@ -234,7 +192,7 @@ export const navigationGroups: NavigationGroup[] = [
             },
             {
                 title: 'Safety & Compliance',
-                href: '/manager/safety',
+                href: '/manager/safety/fire-extinguishers',
                 icon: ShieldAlert,
                 roles: ['PARKING_MANAGER'],
                 children: [
@@ -251,52 +209,6 @@ export const navigationGroups: NavigationGroup[] = [
                         href: '/manager/safety/inspections',
                     },
                 ],
-            },
-            {
-                title: 'Incidents & Violations',
-                href: '/manager/incidents',
-                icon: AlertTriangle,
-                roles: ['PARKING_MANAGER'],
-                children: [
-                    {
-                        title: 'Incident Log',
-                        href: '/manager/incidents/logs',
-                    },
-                    {
-                        title: 'Zone Violations',
-                        href: '/manager/incidents/zone-violations',
-                    },
-                    {
-                        title: 'Red Flag Actions',
-                        href: '/manager/incidents/red-flags',
-                    },
-                ],
-            },
-            {
-                title: 'Analytics',
-                href: '/manager/analytics',
-                icon: BarChart3,
-                roles: ['PARKING_MANAGER'],
-                children: [
-                    {
-                        title: 'Revenue',
-                        href: '/manager/analytics/revenue',
-                    },
-                    {
-                        title: 'Occupancy',
-                        href: '/manager/analytics/occupancy',
-                    },
-                    {
-                        title: 'Traffic Heatmap',
-                        href: '/manager/analytics/traffic-heatmap',
-                    },
-                ],
-            },
-            {
-                title: 'Settings',
-                href: '/manager/settings',
-                icon: Settings,
-                roles: ['PARKING_MANAGER'],
             },
         ],
     },
@@ -329,15 +241,9 @@ export const navigationGroups: NavigationGroup[] = [
                 roles: ['STAFF'],
             },
             {
-                title: 'Live Monitor',
-                href: '/staff/live-monitor',
-                icon: Monitor,
-                roles: ['STAFF'],
-            },
-            {
-                title: 'Exceptions',
-                href: '/staff/exceptions',
-                icon: Siren,
+                title: 'Violation Reports',
+                href: '/staff/violation-reports',
+                icon: ShieldAlert,
                 roles: ['STAFF'],
             },
             {

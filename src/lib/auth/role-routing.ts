@@ -2,9 +2,9 @@ import type { Role } from '@/service/user/type';
 
 export const ROLE_DEFAULT_ROUTES: Record<Role, string> = {
     SYSTEM_ADMIN: '/admin',
-    PARKING_MANAGER: '/manager',
+    PARKING_MANAGER: '/manager/facility/parkings',
     STAFF: '/staff',
-    PARKING_USER: '/driver',
+    PARKING_USER: '/',
 };
 
 const PROTECTED_ROUTE_ROLES: Array<{
@@ -22,10 +22,6 @@ const PROTECTED_ROUTE_ROLES: Array<{
     {
         prefix: '/staff',
         roles: ['STAFF'],
-    },
-    {
-        prefix: '/driver',
-        roles: ['PARKING_USER'],
     },
 ];
 
