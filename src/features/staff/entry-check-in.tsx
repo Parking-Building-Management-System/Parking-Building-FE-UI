@@ -1,10 +1,11 @@
 'use client';
 
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
 import {
+    Check,
     Copy,
     DoorOpen,
     ExternalLink,
@@ -57,6 +58,8 @@ import { useAuthStore } from '@/stores/use-auth-store';
 
 const ACCEPTED_ENTRY_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_ENTRY_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
+const CARD_SEARCH_DEBOUNCE_MS = 325;
+const RFID_CARD_LISTBOX_ID = 'staff-rfid-card-listbox';
 
 type EntryPhotoKind = 'entryOverview' | 'licensePlate';
 
@@ -73,6 +76,20 @@ const createEmptyEntryPhoto = (): EntryPhotoState => ({
     status: 'idle',
     error: '',
 });
+
+const useDebouncedValue = <T,>(value: T, delay: number) => {
+    const [debouncedValue, setDebouncedValue] = useState(value);
+
+    useEffect(() => {
+        const timeout = window.setTimeout(() => {
+            setDebouncedValue(value);
+        }, delay);
+
+        return () => window.clearTimeout(timeout);
+    }, [delay, value]);
+
+    return debouncedValue;
+};
 
 const getStaffCheckInErrorMessage = (error: unknown) => {
     if (error instanceof ApiError) {
@@ -259,12 +276,17 @@ export function StaffEntryCheckIn() {
     const [checkInResult, setCheckInResult] =
         useState<StaffCheckInResponse | null>(null);
     const [cardSearch, setCardSearch] = useState('');
+    const [isCardPickerOpen, setIsCardPickerOpen] = useState(false);
+    const [highlightedCardIndex, setHighlightedCardIndex] = useState(-1);
     const [entryOverviewPhoto, setEntryOverviewPhoto] =
         useState<EntryPhotoState>(() => createEmptyEntryPhoto());
     const [licensePlatePhoto, setLicensePlatePhoto] =
         useState<EntryPhotoState>(() => createEmptyEntryPhoto());
     const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
-    const deferredCardSearch = useDeferredValue(cardSearch);
+    const debouncedCardSearch = useDebouncedValue(
+        cardSearch.trim(),
+        CARD_SEARCH_DEBOUNCE_MS,
+    );
     const form = useForm<StaffCheckInFormValues>({
         resolver: zodResolver(staffCheckInFormSchema),
         defaultValues: {
@@ -283,10 +305,8 @@ export function StaffEntryCheckIn() {
         queryFn: getStaffVehicleTypes,
     });
     const availableCardsQuery = useQuery({
-        queryKey: staffQueryKeys.availableRfidCards(
-            deferredCardSearch.trim(),
-        ),
-        queryFn: () => listAvailableRfidCardsApi(deferredCardSearch, 50),
+        queryKey: staffQueryKeys.availableRfidCards(debouncedCardSearch),
+        queryFn: () => listAvailableRfidCardsApi(debouncedCardSearch, 50),
     });
 
     const checkInMutation = useMutation({
@@ -301,6 +321,8 @@ export function StaffEntryCheckIn() {
                 cardCode: '',
             });
             setCardSearch('');
+            setIsCardPickerOpen(false);
+            setHighlightedCardIndex(-1);
             resetPhotoInputs();
             await queryClient.invalidateQueries({
                 queryKey: ['staff-available-rfid-cards'],
@@ -388,15 +410,50 @@ export function StaffEntryCheckIn() {
     );
     const publicPwaUrl = useMemo(() => buildPublicUrl(pwaPath), [pwaPath]);
     const availableCards = availableCardsQuery.data ?? [];
+    const selectedAvailableCard = availableCards.find(
+        (card) => card.code === cardCode,
+    );
     const isBusy = isUploadingPhotos || checkInMutation.isPending;
     const isSubmitDisabled =
         isBusy ||
         !plateNumber.trim() ||
-        !cardCode.trim() ||
+        !selectedAvailableCard ||
+        availableCardsQuery.isFetching ||
+        availableCardsQuery.isError ||
         !vehicleTypeId ||
         !entryOverviewPhoto.file ||
         !licensePlatePhoto.file ||
         vehicleTypesQuery.isLoading;
+
+    const selectAvailableCard = (code: string) => {
+        form.setValue('cardCode', code, {
+            shouldDirty: true,
+            shouldTouch: true,
+            shouldValidate: true,
+        });
+        setCardSearch(code);
+        setIsCardPickerOpen(false);
+        setHighlightedCardIndex(-1);
+    };
+
+    const refreshAvailableCards = async () => {
+        setHighlightedCardIndex(-1);
+        setIsCardPickerOpen(true);
+        const result = await availableCardsQuery.refetch();
+        const selectedCode = form.getValues('cardCode');
+
+        if (
+            result.isSuccess &&
+            selectedCode &&
+            !result.data?.some((card) => card.code === selectedCode)
+        ) {
+            form.setValue('cardCode', '', {
+                shouldDirty: true,
+                shouldTouch: true,
+                shouldValidate: true,
+            });
+        }
+    };
 
     useEffect(() => {
         return () => {
@@ -732,31 +789,281 @@ export function StaffEntryCheckIn() {
                                     <FormField
                                         control={form.control}
                                         name="cardCode"
-                                        render={({ field }) => (
+                                        render={({ field, fieldState }) => (
                                             <FormItem>
                                                 <FormLabel>RFID card</FormLabel>
                                                 <div className="space-y-2">
                                                     <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-                                                        <div className="relative">
+                                                        <div
+                                                            className="relative"
+                                                            onBlur={(event) => {
+                                                                if (
+                                                                    !event.currentTarget.contains(
+                                                                        event.relatedTarget,
+                                                                    )
+                                                                ) {
+                                                                    setIsCardPickerOpen(
+                                                                        false,
+                                                                    );
+                                                                    setHighlightedCardIndex(
+                                                                        -1,
+                                                                    );
+                                                                }
+                                                            }}
+                                                        >
                                                             <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
                                                             <Input
                                                                 className="pl-9"
                                                                 placeholder="Search available cards"
                                                                 autoComplete="off"
-                                                                disabled={isBusy}
+                                                                role="combobox"
+                                                                aria-autocomplete="list"
+                                                                aria-controls={
+                                                                    RFID_CARD_LISTBOX_ID
+                                                                }
+                                                                aria-expanded={
+                                                                    isCardPickerOpen
+                                                                }
+                                                                aria-activedescendant={
+                                                                    highlightedCardIndex >=
+                                                                    0
+                                                                        ? `rfid-card-option-${availableCards[highlightedCardIndex]?.id}`
+                                                                        : undefined
+                                                                }
+                                                                aria-invalid={
+                                                                    fieldState.invalid
+                                                                }
+                                                                disabled={
+                                                                    isBusy
+                                                                }
                                                                 value={
                                                                     cardSearch
                                                                 }
-                                                                onChange={(
-                                                                    event,
-                                                                ) =>
-                                                                    setCardSearch(
-                                                                        event
-                                                                            .target
-                                                                            .value,
+                                                                name={
+                                                                    field.name
+                                                                }
+                                                                ref={field.ref}
+                                                                onFocus={() =>
+                                                                    setIsCardPickerOpen(
+                                                                        true,
                                                                     )
                                                                 }
+                                                                onBlur={
+                                                                    field.onBlur
+                                                                }
+                                                                onChange={(
+                                                                    event,
+                                                                ) => {
+                                                                    const value =
+                                                                        event
+                                                                            .target
+                                                                            .value;
+                                                                    setCardSearch(
+                                                                        value,
+                                                                    );
+                                                                    setIsCardPickerOpen(
+                                                                        true,
+                                                                    );
+                                                                    setHighlightedCardIndex(
+                                                                        -1,
+                                                                    );
+                                                                    if (
+                                                                        field.value &&
+                                                                        value
+                                                                            .trim()
+                                                                            .toUpperCase() !==
+                                                                            field.value.toUpperCase()
+                                                                    ) {
+                                                                        field.onChange(
+                                                                            '',
+                                                                        );
+                                                                    }
+                                                                }}
+                                                                onKeyDown={(
+                                                                    event,
+                                                                ) => {
+                                                                    if (
+                                                                        event.key ===
+                                                                        'ArrowDown'
+                                                                    ) {
+                                                                        event.preventDefault();
+                                                                        setIsCardPickerOpen(
+                                                                            true,
+                                                                        );
+                                                                        setHighlightedCardIndex(
+                                                                            (
+                                                                                current,
+                                                                            ) =>
+                                                                                availableCards.length ===
+                                                                                0
+                                                                                    ? -1
+                                                                                    : (current +
+                                                                                          1) %
+                                                                                      availableCards.length,
+                                                                        );
+                                                                        return;
+                                                                    }
+
+                                                                    if (
+                                                                        event.key ===
+                                                                        'ArrowUp'
+                                                                    ) {
+                                                                        event.preventDefault();
+                                                                        setIsCardPickerOpen(
+                                                                            true,
+                                                                        );
+                                                                        setHighlightedCardIndex(
+                                                                            (
+                                                                                current,
+                                                                            ) =>
+                                                                                availableCards.length ===
+                                                                                0
+                                                                                    ? -1
+                                                                                    : current <=
+                                                                                        0
+                                                                                      ? availableCards.length -
+                                                                                        1
+                                                                                      : current -
+                                                                                        1,
+                                                                        );
+                                                                        return;
+                                                                    }
+
+                                                                    if (
+                                                                        event.key ===
+                                                                            'Enter' &&
+                                                                        isCardPickerOpen &&
+                                                                        highlightedCardIndex >=
+                                                                            0
+                                                                    ) {
+                                                                        event.preventDefault();
+                                                                        const card =
+                                                                            availableCards[
+                                                                                highlightedCardIndex
+                                                                            ];
+                                                                        if (
+                                                                            card
+                                                                        ) {
+                                                                            selectAvailableCard(
+                                                                                card.code,
+                                                                            );
+                                                                        }
+                                                                        return;
+                                                                    }
+
+                                                                    if (
+                                                                        event.key ===
+                                                                        'Escape'
+                                                                    ) {
+                                                                        event.preventDefault();
+                                                                        setIsCardPickerOpen(
+                                                                            false,
+                                                                        );
+                                                                        setHighlightedCardIndex(
+                                                                            -1,
+                                                                        );
+                                                                    }
+                                                                }}
                                                             />
+                                                            {isCardPickerOpen ? (
+                                                                <div
+                                                                    id={
+                                                                        RFID_CARD_LISTBOX_ID
+                                                                    }
+                                                                    role="listbox"
+                                                                    aria-label="Available RFID cards"
+                                                                    className="bg-popover text-popover-foreground absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border p-1 shadow-md"
+                                                                >
+                                                                    {availableCardsQuery.isFetching ? (
+                                                                        <div className="text-muted-foreground flex items-center gap-2 px-2 py-3 text-sm">
+                                                                            <RefreshCw className="size-4 animate-spin" />
+                                                                            Loading
+                                                                            available
+                                                                            cards...
+                                                                        </div>
+                                                                    ) : availableCardsQuery.isError ? (
+                                                                        <div className="space-y-2 px-2 py-3">
+                                                                            <p className="text-destructive text-sm">
+                                                                                Could
+                                                                                not
+                                                                                load
+                                                                                available
+                                                                                cards.
+                                                                            </p>
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                onClick={
+                                                                                    refreshAvailableCards
+                                                                                }
+                                                                            >
+                                                                                Retry
+                                                                            </Button>
+                                                                        </div>
+                                                                    ) : availableCards.length ===
+                                                                      0 ? (
+                                                                        <p className="text-muted-foreground px-2 py-3 text-sm">
+                                                                            No
+                                                                            available
+                                                                            cards
+                                                                            found
+                                                                        </p>
+                                                                    ) : (
+                                                                        availableCards.map(
+                                                                            (
+                                                                                card,
+                                                                                index,
+                                                                            ) => (
+                                                                                <button
+                                                                                    id={`rfid-card-option-${card.id}`}
+                                                                                    key={
+                                                                                        card.id
+                                                                                    }
+                                                                                    type="button"
+                                                                                    role="option"
+                                                                                    aria-selected={
+                                                                                        card.code ===
+                                                                                        field.value
+                                                                                    }
+                                                                                    tabIndex={
+                                                                                        -1
+                                                                                    }
+                                                                                    className="data-[highlighted=true]:bg-accent data-[highlighted=true]:text-accent-foreground flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm outline-none"
+                                                                                    data-highlighted={
+                                                                                        index ===
+                                                                                        highlightedCardIndex
+                                                                                    }
+                                                                                    onMouseDown={(
+                                                                                        event,
+                                                                                    ) =>
+                                                                                        event.preventDefault()
+                                                                                    }
+                                                                                    onMouseEnter={() =>
+                                                                                        setHighlightedCardIndex(
+                                                                                            index,
+                                                                                        )
+                                                                                    }
+                                                                                    onClick={() =>
+                                                                                        selectAvailableCard(
+                                                                                            card.code,
+                                                                                        )
+                                                                                    }
+                                                                                >
+                                                                                    <span className="min-w-0 flex-1 truncate">
+                                                                                        {card.label ||
+                                                                                            card.code}
+                                                                                    </span>
+                                                                                    {card.code ===
+                                                                                    field.value ? (
+                                                                                        <Check className="ml-2 size-4 shrink-0" />
+                                                                                    ) : null}
+                                                                                </button>
+                                                                            ),
+                                                                        )
+                                                                    )}
+                                                                </div>
+                                                            ) : null}
                                                         </div>
                                                         <Button
                                                             type="button"
@@ -765,56 +1072,21 @@ export function StaffEntryCheckIn() {
                                                             disabled={
                                                                 availableCardsQuery.isFetching
                                                             }
-                                                            onClick={() =>
-                                                                availableCardsQuery.refetch()
+                                                            aria-label="Refresh available RFID cards"
+                                                            title="Refresh available RFID cards"
+                                                            onClick={
+                                                                refreshAvailableCards
                                                             }
                                                         >
-                                                            <RefreshCw className="size-4" />
+                                                            <RefreshCw
+                                                                className={
+                                                                    availableCardsQuery.isFetching
+                                                                        ? 'size-4 animate-spin'
+                                                                        : 'size-4'
+                                                                }
+                                                            />
                                                         </Button>
                                                     </div>
-                                                    <Select
-                                                        value={
-                                                            availableCards.some(
-                                                                (card) =>
-                                                                    card.code ===
-                                                                    field.value,
-                                                            )
-                                                                ? field.value
-                                                                : undefined
-                                                        }
-                                                        disabled={
-                                                            isBusy ||
-                                                            availableCardsQuery.isLoading ||
-                                                            availableCards.length ===
-                                                                0
-                                                        }
-                                                        onValueChange={(value) =>
-                                                            field.onChange(
-                                                                value,
-                                                            )
-                                                        }
-                                                    >
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Choose available card" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {availableCards.map(
-                                                                (card) => (
-                                                                    <SelectItem
-                                                                        key={
-                                                                            card.id
-                                                                        }
-                                                                        value={
-                                                                            card.code
-                                                                        }
-                                                                    >
-                                                                        {card.label ||
-                                                                            card.code}
-                                                                    </SelectItem>
-                                                                ),
-                                                            )}
-                                                        </SelectContent>
-                                                    </Select>
                                                     {availableCardsQuery.isError ? (
                                                         <p className="text-destructive text-xs">
                                                             Could not load
@@ -828,16 +1100,14 @@ export function StaffEntryCheckIn() {
                                                     ) : availableCards.length ===
                                                       0 ? (
                                                         <p className="text-muted-foreground text-xs">
-                                                            No available cards.
-                                                            Ask manager to
-                                                            generate or release
-                                                            cards.
+                                                            No available cards
+                                                            found
                                                         </p>
                                                     ) : (
                                                         <p className="text-muted-foreground text-xs">
                                                             {availableCards.length.toLocaleString()}{' '}
                                                             available cards
-                                                            loaded.
+                                                            found.
                                                         </p>
                                                     )}
                                                 </div>
