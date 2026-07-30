@@ -541,7 +541,7 @@ export function FacilityMapSetup() {
                 </CardContent>
             </Card>
 
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="grid min-h-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,23.75rem)]">
                 <MapWorkspace
                     draftCoordinate={draftCoordinate}
                     isDownloadLoading={
@@ -948,16 +948,16 @@ function SlotListPanel({
     onZoneFilterChange: (value: string) => void;
 }) {
     return (
-        <Card className="xl:sticky xl:top-6 xl:max-h-[calc(100vh-3rem)]">
-            <CardHeader>
+        <Card className="min-h-0 max-h-[calc(100svh-3rem)] xl:sticky xl:top-6">
+            <CardHeader className="shrink-0">
                 <CardTitle>Slots</CardTitle>
                 <p className="text-muted-foreground text-sm">
                     {slots.length.toLocaleString()} slots loaded from the floor
                     map setup API.
                 </p>
             </CardHeader>
-            <CardContent className="space-y-0 p-0">
-                <div className="sticky top-0 z-10 space-y-3 border-b bg-card p-4">
+            <CardContent className="flex min-h-0 flex-1 flex-col p-0">
+                <div className="shrink-0 space-y-3 border-b bg-card p-4">
                     <div className="relative">
                         <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
                         <Input
@@ -1026,7 +1026,12 @@ function SlotListPanel({
                     </div>
                 </div>
 
-                <div className="max-h-[620px] space-y-2 overflow-auto p-4">
+                <div
+                    data-testid="floor-map-slot-list"
+                    tabIndex={0}
+                    aria-label="Floor map slots"
+                    className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-4 pb-5"
+                >
                     {isLoading && (
                         <>
                             {Array.from({ length: 6 }).map((_, index) => (
@@ -1039,6 +1044,8 @@ function SlotListPanel({
                             <button
                                 key={slot.slotId}
                                 type="button"
+                                data-testid="floor-map-slot-card"
+                                data-slot-code={slot.slotCode}
                                 className={cn(
                                     'hover:bg-accent w-full rounded-lg border p-3 text-left transition-colors',
                                     selectedSlotId === slot.slotId &&
