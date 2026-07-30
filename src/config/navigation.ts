@@ -24,7 +24,6 @@ export interface NavigationItem {
     icon: ComponentType<{ className?: string }>;
     roles: Role[];
     groupPath?: string;
-    navigateOnTrigger?: boolean;
     children?: NavigationChildItem[];
 }
 
@@ -119,7 +118,6 @@ export const navigationGroups: NavigationGroup[] = [
                 groupPath: '/manager/facility',
                 icon: CarFront,
                 roles: ['PARKING_MANAGER'],
-                navigateOnTrigger: true,
                 children: [
                     {
                         title: 'Parkings',
@@ -157,7 +155,6 @@ export const navigationGroups: NavigationGroup[] = [
                 groupPath: '/manager/staff-devices',
                 icon: UsersRound,
                 roles: ['PARKING_MANAGER'],
-                navigateOnTrigger: true,
                 children: [
                     {
                         title: 'Staff Accounts',
@@ -189,7 +186,6 @@ export const navigationGroups: NavigationGroup[] = [
                 groupPath: '/manager/pricing',
                 icon: CreditCard,
                 roles: ['PARKING_MANAGER'],
-                navigateOnTrigger: true,
                 children: [
                     {
                         title: 'Pricing Config',
@@ -207,7 +203,6 @@ export const navigationGroups: NavigationGroup[] = [
                 groupPath: '/manager/safety',
                 icon: ShieldAlert,
                 roles: ['PARKING_MANAGER'],
-                navigateOnTrigger: true,
                 children: [
                     {
                         title: 'Fire Extinguishers',

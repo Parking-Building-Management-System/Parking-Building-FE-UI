@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
     findActiveNavigationHref,
@@ -100,6 +101,31 @@ assert.equal(
 assert.equal(
     isSegmentSafeRouteMatch('/manager/staffing', '/manager/staff'),
     false,
+);
+
+const sidebarSource = readFileSync(
+    new URL('../src/components/layout/sidebar.tsx', import.meta.url),
+    'utf8',
+);
+const navigationSource = readFileSync(
+    new URL('../src/config/navigation.ts', import.meta.url),
+    'utf8',
+);
+
+assert.doesNotMatch(
+    sidebarSource,
+    /router\.push\(/,
+    'sidebar group headers must not push a route',
+);
+assert.doesNotMatch(
+    navigationSource,
+    /navigateOnTrigger/,
+    'navigation config must not make groups navigational',
+);
+assert.match(
+    sidebarSource,
+    /function ChildNavLink[\s\S]*?<Link href=\{child\.href\}>/,
+    'leaf children should remain navigation links',
 );
 
 console.log('navigation route matching matrix passed');

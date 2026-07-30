@@ -78,6 +78,7 @@ export function Sidebar() {
     const isCheckingAuth = useAuthStore((state) => state.isCheckingAuth);
     const clearAuth = useAuthStore((state) => state.clearAuth);
     const isCollapsed = useSidebarStore((state) => state.isCollapsed);
+    const setCollapsed = useSidebarStore((state) => state.setCollapsed);
     const toggle = useSidebarStore((state) => state.toggle);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const roles = user?.roles ?? [];
@@ -90,9 +91,7 @@ export function Sidebar() {
         ),
     );
     const activeLeafHref = findActiveNavigationHref(pathname, leafHrefs);
-    const homeHref = getDefaultRouteByRoles(roles);
-    const roleLabel = roles.join(', ') || 'No role';
-    const accordionDefaultValue = groups.flatMap((group) =>
+    const activeGroupHrefs = groups.flatMap((group) =>
         group.items
             .filter(
                 (item) =>
@@ -105,6 +104,42 @@ export function Sidebar() {
             )
             .map((item) => item.href),
     );
+    const activeGroupKey = activeGroupHrefs.join('|');
+    const [expandedGroupState, setExpandedGroupState] = useState({
+        routeKey: activeGroupKey,
+        values: activeGroupHrefs,
+    });
+    const expandedGroups =
+        expandedGroupState.routeKey === activeGroupKey
+            ? expandedGroupState.values
+            : Array.from(
+                  new Set([
+                      ...expandedGroupState.values,
+                      ...activeGroupHrefs,
+                  ]),
+              );
+    const updateExpandedGroups = (
+        updater: (current: string[]) => string[],
+    ) => {
+        setExpandedGroupState((current) => {
+            const currentValues =
+                current.routeKey === activeGroupKey
+                    ? current.values
+                    : Array.from(
+                          new Set([
+                              ...current.values,
+                              ...activeGroupHrefs,
+                          ]),
+                      );
+
+            return {
+                routeKey: activeGroupKey,
+                values: updater(currentValues),
+            };
+        });
+    };
+    const homeHref = getDefaultRouteByRoles(roles);
+    const roleLabel = roles.join(', ') || 'No role';
     const deviceApprovalsQuery = useQuery({
         queryKey: managerKioskDeviceQueryKeys.deviceApprovals,
         queryFn: listManagerDeviceApprovalsApi,
@@ -195,7 +230,15 @@ export function Sidebar() {
             </div>
 
             <nav className="min-h-0 flex-1 space-y-6 overflow-y-auto px-3 py-4">
-                {groups.map((group) => (
+                {groups.map((group) => {
+                    const groupItemHrefs = group.items
+                        .filter((item) => item.children?.length)
+                        .map((item) => item.href);
+                    const groupExpandedValues = expandedGroups.filter((href) =>
+                        groupItemHrefs.includes(href),
+                    );
+
+                    return (
                     <div key={group.role} className="space-y-2">
                         <p
                             className={cn(
@@ -213,6 +256,24 @@ export function Sidebar() {
                                         item={item}
                                         pathname={pathname}
                                         activeLeafHref={activeLeafHref}
+                                        expanded={expandedGroups.includes(
+                                            item.href,
+                                        )}
+                                        onGroupToggle={() => {
+                                            if (!item.children?.length) {
+                                                return;
+                                            }
+                                            updateExpandedGroups((current) =>
+                                                current.includes(item.href)
+                                                    ? current.filter(
+                                                          (href) =>
+                                                              href !==
+                                                              item.href,
+                                                      )
+                                                    : [...current, item.href],
+                                            );
+                                            setCollapsed(false);
+                                        }}
                                         pendingViolationReports={
                                             pendingViolationReports
                                         }
@@ -220,12 +281,19 @@ export function Sidebar() {
                                 ))
                             ) : (
                                 <Accordion
-                                    key={
-                                        accordionDefaultValue.join('|') ||
-                                        'no-active-group'
-                                    }
                                     type="multiple"
-                                    defaultValue={accordionDefaultValue}
+                                    value={groupExpandedValues}
+                                    onValueChange={(nextValues) =>
+                                        updateExpandedGroups((current) => [
+                                            ...current.filter(
+                                                (href) =>
+                                                    !groupItemHrefs.includes(
+                                                        href,
+                                                    ),
+                                            ),
+                                            ...nextValues,
+                                        ])
+                                    }
                                     className="space-y-1"
                                 >
                                     {group.items.map((item) => (
@@ -249,7 +317,8 @@ export function Sidebar() {
                             )}
                         </div>
                     </div>
-                ))}
+                    );
+                })}
             </nav>
             <div className="shrink-0 border-t p-3">
                 <DropdownMenu>
@@ -372,11 +441,15 @@ function CollapsedNavItem({
     item,
     pathname,
     activeLeafHref,
+    expanded,
+    onGroupToggle,
     pendingViolationReports,
 }: {
     item: NavigationItem;
     pathname: string;
     activeLeafHref: string | null;
+    expanded: boolean;
+    onGroupToggle: () => void;
     pendingViolationReports: number;
 }) {
     const isActive = itemContainsCurrentRoute(
@@ -388,6 +461,24 @@ function CollapsedNavItem({
         item.href === '/staff/violation-reports'
             ? pendingViolationReports
             : 0;
+
+    if (item.children?.length) {
+        return (
+            <Button
+                type="button"
+                variant={isActive ? 'secondary' : 'ghost'}
+                className="relative w-full justify-center px-0"
+                title={item.title}
+                aria-expanded={expanded}
+                onClick={onGroupToggle}
+            >
+                {createElement(item.icon, {
+                    className: 'size-4',
+                })}
+                <span className="sr-only">Toggle {item.title}</span>
+            </Button>
+        );
+    }
 
     return (
         <Button
@@ -422,10 +513,9 @@ function NavItem({
     pendingDeviceApprovalsLoading: boolean;
     pendingViolationReports: number;
 }) {
-    const router = useRouter();
     const isActive =
         normalizeNavigationPath(item.href) === activeLeafHref;
-    const isExpanded = itemContainsCurrentRoute(
+    const isCurrentGroup = itemContainsCurrentRoute(
         pathname,
         item,
         activeLeafHref,
@@ -461,13 +551,8 @@ function NavItem({
             <AccordionTrigger
                 className={cn(
                     'h-8 rounded-lg px-2.5 py-0 text-sm hover:no-underline',
-                    isExpanded && 'text-foreground',
+                    isCurrentGroup && 'text-foreground',
                 )}
-                onClick={() => {
-                    if (item.navigateOnTrigger) {
-                        router.push(item.href);
-                    }
-                }}
             >
                 <span className="flex min-w-0 items-center gap-1.5">
                     {createElement(item.icon, {
