@@ -24,6 +24,7 @@ import type {
     StaffCashSettlementPreviewResponse,
     StaffCurrentCashShiftResponse,
     StaffViolationReportApproveRequest,
+    StaffViolationReportPendingCountResponse,
     StaffViolationReportRejectRequest,
     StaffViolationReportResponse,
 } from '@/service/staff/type';
@@ -57,6 +58,11 @@ export const staffQueryKeys = {
         'settlement-preview',
     ] as const,
     violationReports: ['staff', 'violation-reports'] as const,
+    pendingViolationReportCount: [
+        'staff',
+        'violation-reports',
+        'pending-count',
+    ] as const,
     violationReport: (reportId: string) =>
         ['staff', 'violation-reports', reportId] as const,
 };
@@ -238,6 +244,14 @@ export const getViolationReportApi = async (reportId: string) => {
     const response = await apiClient.get<ApiResponse<StaffViolationReportResponse>>(
         `${STAFF_ENDPOINT}/violation-reports/${reportId}`,
     );
+
+    return getApiResult(response);
+};
+
+export const getPendingViolationReportCountApi = async () => {
+    const response = await apiClient.get<
+        ApiResponse<StaffViolationReportPendingCountResponse>
+    >(`${STAFF_ENDPOINT}/violation-reports/pending-count`);
 
     return getApiResult(response);
 };

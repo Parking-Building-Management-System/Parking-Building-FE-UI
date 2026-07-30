@@ -176,6 +176,10 @@ export interface StaffViolationReportResponse {
     currency?: string | null;
 }
 
+export interface StaffViolationReportPendingCountResponse {
+    pendingCount: number;
+}
+
 export interface StaffViolationReportApproveRequest {
     confirmedOffenderPlateNumber: string;
     note?: string;

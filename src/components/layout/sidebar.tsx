@@ -38,6 +38,10 @@ import {
 import { getDefaultRouteByRoles } from '@/lib/auth/role-routing';
 import { cn } from '@/lib/utils';
 import {
+    getPendingViolationReportCountApi,
+    staffQueryKeys,
+} from '@/service/staff';
+import {
     listManagerDeviceApprovalsApi,
     managerKioskDeviceQueryKeys,
 } from '@/service/manager/kiosk-device-api';
@@ -63,6 +67,7 @@ export function Sidebar() {
     const router = useRouter();
     const pathname = usePathname();
     const user = useAuthStore((state) => state.user);
+    const isCheckingAuth = useAuthStore((state) => state.isCheckingAuth);
     const clearAuth = useAuthStore((state) => state.clearAuth);
     const isCollapsed = useSidebarStore((state) => state.isCollapsed);
     const toggle = useSidebarStore((state) => state.toggle);
@@ -90,6 +95,18 @@ export function Sidebar() {
     const pendingDeviceApprovals = getPendingApprovalCount(
         deviceApprovalsQuery.data,
     );
+    const pendingViolationReportsQuery = useQuery({
+        queryKey: staffQueryKeys.pendingViolationReportCount,
+        queryFn: getPendingViolationReportCountApi,
+        enabled:
+            !isCheckingAuth &&
+            roles.includes('STAFF') &&
+            Boolean(user?.workContext),
+        refetchInterval: 30_000,
+        refetchOnWindowFocus: false,
+    });
+    const pendingViolationReports =
+        pendingViolationReportsQuery.data?.pendingCount ?? 0;
 
     if (groups.length === 0) {
         return null;
@@ -175,6 +192,9 @@ export function Sidebar() {
                                         key={item.href}
                                         item={item}
                                         pathname={pathname}
+                                        pendingViolationReports={
+                                            pendingViolationReports
+                                        }
                                     />
                                 ))
                             ) : (
@@ -193,6 +213,9 @@ export function Sidebar() {
                                             }
                                             pendingDeviceApprovalsLoading={
                                                 deviceApprovalsQuery.isLoading
+                                            }
+                                            pendingViolationReports={
+                                                pendingViolationReports
                                             }
                                         />
                                     ))}
@@ -322,17 +345,23 @@ export function Sidebar() {
 function CollapsedNavItem({
     item,
     pathname,
+    pendingViolationReports,
 }: {
     item: NavigationItem;
     pathname: string;
+    pendingViolationReports: number;
 }) {
     const isActive = itemContainsCurrentRoute(pathname, item);
+    const pendingCount =
+        item.href === '/staff/violation-reports'
+            ? pendingViolationReports
+            : 0;
 
     return (
         <Button
             asChild
             variant={isActive ? 'secondary' : 'ghost'}
-            className="w-full justify-center px-0"
+            className="relative w-full justify-center px-0"
             title={item.title}
         >
             <Link href={item.href}>
@@ -340,6 +369,7 @@ function CollapsedNavItem({
                     className: 'size-4',
                 })}
                 <span className="sr-only">{item.title}</span>
+                <PendingCountBadge count={pendingCount} collapsed />
             </Link>
         </Button>
     );
@@ -350,11 +380,13 @@ function NavItem({
     pathname,
     pendingDeviceApprovals,
     pendingDeviceApprovalsLoading,
+    pendingViolationReports,
 }: {
     item: NavigationItem;
     pathname: string;
     pendingDeviceApprovals: number;
     pendingDeviceApprovalsLoading: boolean;
+    pendingViolationReports: number;
 }) {
     const router = useRouter();
     const isActive = isLeafActive(pathname, item.href);
@@ -373,6 +405,13 @@ function NavItem({
                         className: 'size-4',
                     })}
                     <span className="truncate">{item.title}</span>
+                    <PendingCountBadge
+                        count={
+                            item.href === '/staff/violation-reports'
+                                ? pendingViolationReports
+                                : 0
+                        }
+                    />
                 </Link>
             </Button>
         );
@@ -427,6 +466,30 @@ function NavItem({
                 ))}
             </AccordionContent>
         </AccordionItem>
+    );
+}
+
+function PendingCountBadge({
+    count,
+    collapsed = false,
+}: {
+    count: number;
+    collapsed?: boolean;
+}) {
+    if (count <= 0) {
+        return null;
+    }
+
+    return (
+        <span
+            className={cn(
+                'bg-primary text-primary-foreground inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-[10px] leading-none',
+                collapsed ? 'absolute top-0.5 right-0.5' : 'ml-auto',
+            )}
+            aria-label={`${count} violation reports pending review`}
+        >
+            {count > 99 ? '99+' : count}
+        </span>
     );
 }
 

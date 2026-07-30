@@ -100,6 +100,9 @@ export function StaffViolationReports() {
         queryClient.invalidateQueries({
             queryKey: staffQueryKeys.violationReports,
         });
+        queryClient.invalidateQueries({
+            queryKey: staffQueryKeys.pendingViolationReportCount,
+        });
         if (selectedReportId) {
             queryClient.invalidateQueries({
                 queryKey: staffQueryKeys.violationReport(selectedReportId),
