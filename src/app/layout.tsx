@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
     title: 'SmartPark',
     description: 'A part of SmartPark Ecosystem',
+    icons: {
+        icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    },
 };
 
 export default function RootLayout({
