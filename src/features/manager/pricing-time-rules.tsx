@@ -291,9 +291,8 @@ export function PricingTimeRules() {
                     <p className="text-muted-foreground text-sm">
                         Free = free minutes before charging. First Block = first
                         billable duration and price. Next Block = repeated
-                        duration and price after the first block. Daily Cap =
-                        maximum charge per day. Grace = minutes allowed to exit
-                        after successful payment.
+                        duration and price after the first block. Grace = minutes
+                        allowed to exit after successful payment.
                     </p>
                     <p className="text-muted-foreground text-xs">
                         {totalElements.toLocaleString()} rules
@@ -309,7 +308,6 @@ export function PricingTimeRules() {
                                 <TableHead>Free</TableHead>
                                 <TableHead>First Block</TableHead>
                                 <TableHead>Next Block</TableHead>
-                                <TableHead>Daily Cap</TableHead>
                                 <TableHead>Grace</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead className="text-right">
@@ -348,9 +346,6 @@ export function PricingTimeRules() {
                                                 rule.nextBlockMinutes,
                                             )}{' '}
                                             / {formatMoney(rule.nextBlockPrice)}
-                                        </TableCell>
-                                        <TableCell>
-                                            {formatMoney(rule.dailyCapPrice)}
                                         </TableCell>
                                         <TableCell>
                                             {formatMinutes(
@@ -403,7 +398,7 @@ export function PricingTimeRules() {
                             {!rulesQuery.isLoading && rulesQuery.isError && (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={10}
+                                        colSpan={9}
                                         className="text-muted-foreground h-28 text-center"
                                     >
                                         <div className="flex flex-col items-center gap-3">
@@ -429,7 +424,7 @@ export function PricingTimeRules() {
                                 rules.length === 0 && (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={10}
+                                            colSpan={9}
                                             className="text-muted-foreground h-28 text-center"
                                         >
                                             <div className="flex flex-col items-center gap-3">
@@ -537,10 +532,6 @@ function PricingRuleDialog({
         firstBlockPrice: String(rule?.firstBlockPrice ?? 5000),
         nextBlockMinutes: String(rule?.nextBlockMinutes ?? 60),
         nextBlockPrice: String(rule?.nextBlockPrice ?? 5000),
-        dailyCapPrice:
-            typeof rule?.dailyCapPrice === 'number'
-                ? String(rule.dailyCapPrice)
-                : '50000',
         graceMinutesAfterPayment: String(rule?.graceMinutesAfterPayment ?? 15),
         status: rule?.status ?? 'ACTIVE',
     });
@@ -696,36 +687,38 @@ function PricingRuleDialog({
                                 </SelectContent>
                             </Select>
                         </LabeledField>
-                        <LabeledField label="Vehicle type">
-                            <Select
-                                value={form.vehicleTypeId}
-                                disabled={
-                                    mutation.isPending ||
-                                    vehicleTypes.length === 0
-                                }
-                                onValueChange={(value) =>
-                                    setFormValue(
-                                        setForm,
-                                        'vehicleTypeId',
-                                        value,
-                                    )
-                                }
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select vehicle type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {vehicleTypes.map((type) => (
-                                        <SelectItem
-                                            key={type.id}
-                                            value={type.id}
-                                        >
-                                            {type.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </LabeledField>
+                        <div className="md:col-span-2">
+                            <LabeledField label="Vehicle type">
+                                <Select
+                                    value={form.vehicleTypeId}
+                                    disabled={
+                                        mutation.isPending ||
+                                        vehicleTypes.length === 0
+                                    }
+                                    onValueChange={(value) =>
+                                        setFormValue(
+                                            setForm,
+                                            'vehicleTypeId',
+                                            value,
+                                        )
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select vehicle type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {vehicleTypes.map((type) => (
+                                            <SelectItem
+                                                key={type.id}
+                                                value={type.id}
+                                            >
+                                                {type.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </LabeledField>
+                        </div>
                     </div>
                     <div className="grid gap-3 md:grid-cols-3">
                         <LabeledField
@@ -776,6 +769,8 @@ function PricingRuleDialog({
                                 }
                             />
                         </LabeledField>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
                         <LabeledField label="Next block duration minutes">
                             <Input
                                 type="number"
@@ -806,21 +801,8 @@ function PricingRuleDialog({
                                 }
                             />
                         </LabeledField>
-                        <LabeledField label="Daily cap price">
-                            <Input
-                                type="number"
-                                min={0}
-                                value={form.dailyCapPrice}
-                                disabled={mutation.isPending}
-                                onChange={(event) =>
-                                    setFormValue(
-                                        setForm,
-                                        'dailyCapPrice',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                        </LabeledField>
+                    </div>
+                    <div className="max-w-md">
                         <LabeledField
                             label="Grace minutes after payment"
                             help="Grace minutes are used after payment before the driver exits the parking lot."
@@ -924,7 +906,7 @@ function RuleSkeleton() {
         <>
             {Array.from({ length: 5 }).map((_, index) => (
                 <TableRow key={index}>
-                    <TableCell colSpan={10}>
+                    <TableCell colSpan={9}>
                         <Skeleton className="h-6 w-full" />
                     </TableCell>
                 </TableRow>
@@ -945,9 +927,6 @@ function buildPricingRulePayload(
         firstBlockPrice: Number(form.firstBlockPrice),
         nextBlockMinutes: Number(form.nextBlockMinutes),
         nextBlockPrice: Number(form.nextBlockPrice),
-        dailyCapPrice: form.dailyCapPrice.trim()
-            ? Number(form.dailyCapPrice)
-            : null,
         graceMinutesAfterPayment: Number(form.graceMinutesAfterPayment),
         status: form.status as PricingRuleStatus,
     };
@@ -963,7 +942,6 @@ interface PricingRuleDialogForm {
     firstBlockPrice: string;
     nextBlockMinutes: string;
     nextBlockPrice: string;
-    dailyCapPrice: string;
     graceMinutesAfterPayment: string;
     status: string;
 }
@@ -996,14 +974,6 @@ function validatePricingRuleForm(form: PricingRuleDialogForm) {
 
         if (!Number.isFinite(value) || value < min) {
             return `${label} must be at least ${min}.`;
-        }
-    }
-
-    if (form.dailyCapPrice.trim()) {
-        const dailyCapPrice = Number(form.dailyCapPrice);
-
-        if (!Number.isFinite(dailyCapPrice) || dailyCapPrice < 0) {
-            return 'Daily cap price must be at least 0.';
         }
     }
 

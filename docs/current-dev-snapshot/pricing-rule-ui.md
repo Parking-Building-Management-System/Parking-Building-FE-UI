@@ -36,11 +36,10 @@ The Time Rules create/edit dialog sends:
 - `firstBlockPrice`
 - `nextBlockMinutes`
 - `nextBlockPrice`
-- `dailyCapPrice`, nullable
 - `graceMinutesAfterPayment`
 - `status`
 
-Validation enforces required name/vehicle type, non-negative prices/minutes, positive block minutes, and optional non-negative daily cap.
+Validation enforces required name/vehicle type, non-negative prices/minutes, and positive block minutes.
 
 ## Preview Calculator
 

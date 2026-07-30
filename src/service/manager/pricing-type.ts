@@ -25,7 +25,6 @@ export interface PricingRuleResponse {
     firstBlockPrice: number;
     nextBlockMinutes: number;
     nextBlockPrice: number;
-    dailyCapPrice?: number | null;
     graceMinutesAfterPayment: number;
     status: PricingRuleStatus;
     createdAt?: string | null;
@@ -49,7 +48,6 @@ export interface PricingRuleRequest {
     firstBlockPrice: number;
     nextBlockMinutes: number;
     nextBlockPrice: number;
-    dailyCapPrice?: number | null;
     graceMinutesAfterPayment: number;
     status?: PricingRuleStatus;
 }
@@ -78,7 +76,6 @@ export interface PricingPreviewResponse {
     durationMinutes?: number | null;
     chargeableMinutes?: number | null;
     freeMinutesApplied?: number | null;
-    dailyCapApplied?: boolean | null;
     ruleId?: string | null;
     ruleName?: string | null;
     breakdown?: PricingBreakdownItem[];
