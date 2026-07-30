@@ -36,6 +36,11 @@ import {
     type NavigationItem,
 } from '@/config/navigation';
 import { getDefaultRouteByRoles } from '@/lib/auth/role-routing';
+import {
+    findActiveNavigationHref,
+    isNavigationGroupActive,
+    normalizeNavigationPath,
+} from '@/lib/navigation/route-matching';
 import { cn } from '@/lib/utils';
 import {
     getPendingViolationReportCountApi,
@@ -49,18 +54,21 @@ import { logoutApi } from '@/service/user/api';
 import { useAuthStore } from '@/stores/use-auth-store';
 import { useSidebarStore } from '@/stores/use-sidebar-store';
 
-const isLeafActive = (pathname: string, href: string) => pathname === href;
-
-const isGroupExpanded = (pathname: string, href: string) => {
-    return pathname === href || pathname.startsWith(`${href}/`);
-};
-
-const itemContainsCurrentRoute = (pathname: string, item: NavigationItem) => {
+const itemContainsCurrentRoute = (
+    pathname: string,
+    item: NavigationItem,
+    activeLeafHref: string | null,
+) => {
     if (item.children?.length) {
-        return isGroupExpanded(pathname, item.href);
+        return isNavigationGroupActive({
+            pathname,
+            groupPath: item.groupPath,
+            childHrefs: item.children.map((child) => child.href),
+            activeLeafHref,
+        });
     }
 
-    return isLeafActive(pathname, item.href);
+    return normalizeNavigationPath(item.href) === activeLeafHref;
 };
 
 export function Sidebar() {
@@ -74,6 +82,14 @@ export function Sidebar() {
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const roles = user?.roles ?? [];
     const groups = getNavigationItemsForRoles(roles);
+    const leafHrefs = groups.flatMap((group) =>
+        group.items.flatMap((item) =>
+            item.children?.length
+                ? item.children.map((child) => child.href)
+                : [item.href],
+        ),
+    );
+    const activeLeafHref = findActiveNavigationHref(pathname, leafHrefs);
     const homeHref = getDefaultRouteByRoles(roles);
     const roleLabel = roles.join(', ') || 'No role';
     const accordionDefaultValue = groups.flatMap((group) =>
@@ -81,7 +97,11 @@ export function Sidebar() {
             .filter(
                 (item) =>
                     item.children?.length &&
-                    itemContainsCurrentRoute(pathname, item),
+                    itemContainsCurrentRoute(
+                        pathname,
+                        item,
+                        activeLeafHref,
+                    ),
             )
             .map((item) => item.href),
     );
@@ -192,6 +212,7 @@ export function Sidebar() {
                                         key={item.href}
                                         item={item}
                                         pathname={pathname}
+                                        activeLeafHref={activeLeafHref}
                                         pendingViolationReports={
                                             pendingViolationReports
                                         }
@@ -199,6 +220,10 @@ export function Sidebar() {
                                 ))
                             ) : (
                                 <Accordion
+                                    key={
+                                        accordionDefaultValue.join('|') ||
+                                        'no-active-group'
+                                    }
                                     type="multiple"
                                     defaultValue={accordionDefaultValue}
                                     className="space-y-1"
@@ -208,6 +233,7 @@ export function Sidebar() {
                                             key={item.href}
                                             item={item}
                                             pathname={pathname}
+                                            activeLeafHref={activeLeafHref}
                                             pendingDeviceApprovals={
                                                 pendingDeviceApprovals
                                             }
@@ -345,13 +371,19 @@ export function Sidebar() {
 function CollapsedNavItem({
     item,
     pathname,
+    activeLeafHref,
     pendingViolationReports,
 }: {
     item: NavigationItem;
     pathname: string;
+    activeLeafHref: string | null;
     pendingViolationReports: number;
 }) {
-    const isActive = itemContainsCurrentRoute(pathname, item);
+    const isActive = itemContainsCurrentRoute(
+        pathname,
+        item,
+        activeLeafHref,
+    );
     const pendingCount =
         item.href === '/staff/violation-reports'
             ? pendingViolationReports
@@ -378,19 +410,26 @@ function CollapsedNavItem({
 function NavItem({
     item,
     pathname,
+    activeLeafHref,
     pendingDeviceApprovals,
     pendingDeviceApprovalsLoading,
     pendingViolationReports,
 }: {
     item: NavigationItem;
     pathname: string;
+    activeLeafHref: string | null;
     pendingDeviceApprovals: number;
     pendingDeviceApprovalsLoading: boolean;
     pendingViolationReports: number;
 }) {
     const router = useRouter();
-    const isActive = isLeafActive(pathname, item.href);
-    const isExpanded = itemContainsCurrentRoute(pathname, item);
+    const isActive =
+        normalizeNavigationPath(item.href) === activeLeafHref;
+    const isExpanded = itemContainsCurrentRoute(
+        pathname,
+        item,
+        activeLeafHref,
+    );
 
     if (!item.children?.length) {
         return (
@@ -438,19 +477,11 @@ function NavItem({
                 </span>
             </AccordionTrigger>
             <AccordionContent className="space-y-1 pt-1 pb-1 pl-5">
-                {item.showOverviewChild !== false && (
-                    <ChildNavLink
-                        child={{ title: 'Overview', href: item.href }}
-                        pathname={pathname}
-                        pendingCount={0}
-                        pendingLoading={false}
-                    />
-                )}
                 {item.children.map((child) => (
                     <ChildNavLink
                         key={child.href}
                         child={child}
-                        pathname={pathname}
+                        activeLeafHref={activeLeafHref}
                         pendingCount={
                             child.href ===
                             '/manager/staff-devices/device-approvals'
@@ -495,16 +526,17 @@ function PendingCountBadge({
 
 function ChildNavLink({
     child,
-    pathname,
+    activeLeafHref,
     pendingCount,
     pendingLoading,
 }: {
     child: NavigationChildItem;
-    pathname: string;
+    activeLeafHref: string | null;
     pendingCount: number;
     pendingLoading: boolean;
 }) {
-    const isActive = pathname === child.href;
+    const isActive =
+        normalizeNavigationPath(child.href) === activeLeafHref;
 
     return (
         <Button

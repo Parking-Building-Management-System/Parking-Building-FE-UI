@@ -23,7 +23,7 @@ export interface NavigationItem {
     href: string;
     icon: ComponentType<{ className?: string }>;
     roles: Role[];
-    showOverviewChild?: boolean;
+    groupPath?: string;
     navigateOnTrigger?: boolean;
     children?: NavigationChildItem[];
 }
@@ -59,9 +59,9 @@ export const navigationGroups: NavigationGroup[] = [
             {
                 title: 'Master Data',
                 href: '/admin/master-data',
+                groupPath: '/admin/master-data',
                 icon: Database,
                 roles: ['SYSTEM_ADMIN'],
-                showOverviewChild: false,
                 children: [
                     {
                         title: 'Vehicle Types',
@@ -76,9 +76,9 @@ export const navigationGroups: NavigationGroup[] = [
             {
                 title: 'System Health',
                 href: '/admin/system-health/api',
+                groupPath: '/admin/system-health',
                 icon: Activity,
                 roles: ['SYSTEM_ADMIN'],
-                showOverviewChild: false,
                 children: [
                     {
                         title: 'API Health',
@@ -93,9 +93,9 @@ export const navigationGroups: NavigationGroup[] = [
             {
                 title: 'Audit & Security',
                 href: '/admin/audit/logs',
+                groupPath: '/admin/audit',
                 icon: ShieldCheck,
                 roles: ['SYSTEM_ADMIN'],
-                showOverviewChild: false,
                 children: [
                     {
                         title: 'Audit Logs',
@@ -116,9 +116,9 @@ export const navigationGroups: NavigationGroup[] = [
             {
                 title: 'Facility Setup',
                 href: '/manager/facility/parkings',
+                groupPath: '/manager/facility',
                 icon: CarFront,
                 roles: ['PARKING_MANAGER'],
-                showOverviewChild: false,
                 navigateOnTrigger: true,
                 children: [
                     {
@@ -154,8 +154,10 @@ export const navigationGroups: NavigationGroup[] = [
             {
                 title: 'Staff & Devices',
                 href: '/manager/staff-devices/staff',
+                groupPath: '/manager/staff-devices',
                 icon: UsersRound,
                 roles: ['PARKING_MANAGER'],
+                navigateOnTrigger: true,
                 children: [
                     {
                         title: 'Staff Accounts',
@@ -184,8 +186,10 @@ export const navigationGroups: NavigationGroup[] = [
             {
                 title: 'Pricing & Billing',
                 href: '/manager/pricing/config',
+                groupPath: '/manager/pricing',
                 icon: CreditCard,
                 roles: ['PARKING_MANAGER'],
+                navigateOnTrigger: true,
                 children: [
                     {
                         title: 'Pricing Config',
@@ -200,8 +204,10 @@ export const navigationGroups: NavigationGroup[] = [
             {
                 title: 'Safety & Compliance',
                 href: '/manager/safety/fire-extinguishers',
+                groupPath: '/manager/safety',
                 icon: ShieldAlert,
                 roles: ['PARKING_MANAGER'],
+                navigateOnTrigger: true,
                 children: [
                     {
                         title: 'Fire Extinguishers',
