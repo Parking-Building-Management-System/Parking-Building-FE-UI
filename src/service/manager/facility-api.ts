@@ -95,6 +95,11 @@ export const normalizeRfidCardListParams = (params: RfidCardListParams) => {
     };
 };
 
+export const getRfidCardListRequestConfig = (params: RfidCardListParams) => ({
+    url: `${MANAGER_ENDPOINT}/rfid-cards`,
+    params: normalizeRfidCardListParams(params),
+});
+
 const normalizeVehicleType = (
     item: GlobalVehicleTypeResponse & Record<string, unknown>,
 ): GlobalVehicleTypeResponse | null => {
@@ -513,9 +518,10 @@ export const listGlobalVehicleTypesApi = async () => {
 };
 
 export const listRfidCardsApi = async (params: RfidCardListParams) => {
+    const request = getRfidCardListRequestConfig(params);
     const response = await apiClient.get<ApiResponse<RfidCardPageResponse>>(
-        `${MANAGER_ENDPOINT}/rfid-cards`,
-        { params: normalizeRfidCardListParams(params) },
+        request.url,
+        { params: request.params },
     );
 
     return getApiResult(response);

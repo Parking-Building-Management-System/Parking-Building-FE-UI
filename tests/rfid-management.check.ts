@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import axios from 'axios';
 
-import { normalizeRfidCardListParams } from '../src/service/manager/facility-api';
+import {
+    getRfidCardListRequestConfig,
+    normalizeRfidCardListParams,
+} from '../src/service/manager/facility-api';
 
 assert.deepEqual(
     normalizeRfidCardListParams({
@@ -26,6 +30,30 @@ assert.deepEqual(
         size: 50,
     },
     'search should be trimmed while filters and pagination are preserved',
+);
+
+assert.equal(
+    axios.getUri(
+        getRfidCardListRequestConfig({
+            search: '  VDAA  ',
+            page: 0,
+            size: 25,
+        }),
+    ),
+    '/manager/rfid-cards?search=VDAA&page=0&size=25',
+    'a nonblank search must be serialized into the outgoing request URL',
+);
+assert.equal(
+    axios.getUri(
+        getRfidCardListRequestConfig({
+            search: '   ',
+            status: 'LOST',
+            page: 0,
+            size: 25,
+        }),
+    ),
+    '/manager/rfid-cards?status=LOST&page=0&size=25',
+    'a blank search must be omitted without dropping other filters',
 );
 
 const source = readFileSync(
