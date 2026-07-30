@@ -92,34 +92,6 @@ export interface FireSafetyMap {
     extinguishers: FireSafetyMapPin[];
 }
 
-export interface FireExtinguisherInspectionLog {
-    id: string;
-    fireExtinguisherId?: string | null;
-    extinguisherCode?: string | null;
-    code?: string | null;
-    result: FireInspectionResult | string;
-    inspectorId?: string | null;
-    inspectorName?: string | null;
-    parkingId?: string | null;
-    parkingName?: string | null;
-    floorId?: string | null;
-    floorName?: string | null;
-    floorCode?: string | null;
-    zoneId?: string | null;
-    zoneName?: string | null;
-    pressureOk?: boolean | null;
-    sealOk?: boolean | null;
-    locationOk?: boolean | null;
-    expiryOk?: boolean | null;
-    photoObjectKey?: string | null;
-    photoDisplayUrl?: string | null;
-    photoUrlExpiresInSeconds?: number | null;
-    photoUrl?: string | null;
-    note?: string | null;
-    inspectedAt?: string | null;
-    nextInspectionAt?: string | null;
-}
-
 export interface CreateFireExtinguisherRequest {
     parkingId: string;
     floorId: string;
@@ -159,21 +131,8 @@ export interface FireExtinguisherListParams {
     size?: number;
 }
 
-export interface FireInspectionLogListParams {
-    extinguisherId?: string;
-    parkingId?: string;
-    floorId?: string;
-    result?: FireInspectionResult;
-    from?: string;
-    to?: string;
-    page?: number;
-    size?: number;
-}
-
 export type FireExtinguisherPageResponse =
     ApiPageResponse<FireExtinguisher>;
-export type FireInspectionLogPageResponse =
-    ApiPageResponse<FireExtinguisherInspectionLog>;
 
 export const fireExtinguisherFormSchema = z
     .object({

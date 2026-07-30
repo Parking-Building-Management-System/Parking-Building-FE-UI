@@ -1,5 +1,5 @@
-import { ManagerFireInspectionLogsPage } from '@/features/manager/fire-safety';
+import { redirect } from 'next/navigation';
 
 export default function FireInspectionLogsPage() {
-    return <ManagerFireInspectionLogsPage />;
+    redirect('/manager/safety/fire-extinguishers');
 }

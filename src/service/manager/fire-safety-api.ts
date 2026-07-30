@@ -7,8 +7,6 @@ import type {
     FireExtinguisherListParams,
     FireExtinguisherPageResponse,
     FireExtinguisherSummary,
-    FireInspectionLogListParams,
-    FireInspectionLogPageResponse,
     FireSafetyMap,
     UpdateFireExtinguisherCoordinateRequest,
     UpdateFireExtinguisherRequest,
@@ -47,8 +45,6 @@ export const managerFireSafetyQueryKeys = {
     extinguisher: (id: string) => ['manager-fire-extinguisher', id] as const,
     summary: ['manager-fire-extinguisher-summary'] as const,
     map: (floorId: string) => ['manager-fire-safety-map', floorId] as const,
-    inspectionLogs: (filters: FireInspectionLogListParams) =>
-        ['manager-fire-inspection-logs', filters] as const,
 };
 
 export const listFireExtinguishersApi = async (
@@ -140,18 +136,6 @@ export const getFireSafetyMapApi = async (floorId: string) => {
     const response = await apiClient.get<ApiResponse<FireSafetyMap>>(
         `${MANAGER_ENDPOINT}/floors/${floorId}/fire-safety-map`,
     );
-
-    return getApiResult(response);
-};
-
-export const listFireInspectionLogsApi = async (
-    params: FireInspectionLogListParams,
-) => {
-    const response = await apiClient.get<
-        ApiResponse<FireInspectionLogPageResponse>
-    >(`${MANAGER_ENDPOINT}/fire-inspections/logs`, {
-        params: compactParams(params),
-    });
 
     return getApiResult(response);
 };

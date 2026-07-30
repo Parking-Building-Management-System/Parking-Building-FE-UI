@@ -212,10 +212,6 @@ export const navigationGroups: NavigationGroup[] = [
                         title: 'Fire Safety Map',
                         href: '/manager/safety/fire-map',
                     },
-                    {
-                        title: 'Inspection Logs',
-                        href: '/manager/safety/inspections',
-                    },
                 ],
             },
         ],

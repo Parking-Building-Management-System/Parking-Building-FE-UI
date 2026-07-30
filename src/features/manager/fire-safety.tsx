@@ -11,8 +11,6 @@ import {
 import {
     AlertTriangle,
     CheckCircle2,
-    ClipboardList,
-    ExternalLink,
     MapPin,
     Pencil,
     Plus,
@@ -75,7 +73,6 @@ import {
     getFireExtinguisherSummaryApi,
     getFireSafetyMapApi,
     listFireExtinguishersApi,
-    listFireInspectionLogsApi,
     managerFireSafetyQueryKeys,
     updateFireExtinguisherApi,
     updateFireExtinguisherCoordinateApi,
@@ -85,17 +82,14 @@ import type {
     CreateFireExtinguisherRequest,
     FireExtinguisher,
     FireExtinguisherFormValues,
-    FireExtinguisherInspectionLog,
     FireExtinguisherListParams,
     FireExtinguisherStatus,
     FireExtinguisherType,
-    FireInspectionResult,
 } from '@/service/manager/fire-safety-type';
 import {
     fireExtinguisherFormSchema,
     fireExtinguisherStatusValues,
     fireExtinguisherTypeValues,
-    fireInspectionResultValues,
 } from '@/service/manager/fire-safety-type';
 import { EmptyState, FacilityHeader, SimpleSkeleton } from './floor-management';
 
@@ -239,12 +233,6 @@ export function ManagerSafetyOverview() {
                             <Link href="/manager/safety/fire-map">
                                 <MapPin data-icon="inline-start" />
                                 Open Fire Safety Map
-                            </Link>
-                        </Button>
-                        <Button asChild variant="outline">
-                            <Link href="/manager/safety/inspections">
-                                <ClipboardList data-icon="inline-start" />
-                                View Inspection Logs
                             </Link>
                         </Button>
                     </CardContent>
@@ -867,221 +855,6 @@ export function ManagerFireSafetyMapPage() {
                     </CardContent>
                 </Card>
             </div>
-        </div>
-    );
-}
-
-export function ManagerFireInspectionLogsPage() {
-    const [parkingId, setParkingId] = useState(ALL);
-    const [floorId, setFloorId] = useState(ALL);
-    const [result, setResult] = useState(ALL);
-    const [from, setFrom] = useState('');
-    const [to, setTo] = useState('');
-
-    const parkingsQuery = useQuery({
-        queryKey: managerFacilityQueryKeys.parkings,
-        queryFn: listParkingsApi,
-    });
-    const selectedParkingId =
-        parkingId === ALL ? parkingsQuery.data?.[0]?.id || '' : parkingId;
-    const floorsQuery = useQuery({
-        queryKey: managerFacilityQueryKeys.floors(selectedParkingId),
-        queryFn: () => listFloorsApi(selectedParkingId),
-        enabled: !!selectedParkingId,
-    });
-    const filters = useMemo(
-        () => ({
-            parkingId: parkingId === ALL ? undefined : parkingId,
-            floorId: floorId === ALL ? undefined : floorId,
-            result: result === ALL ? undefined : (result as FireInspectionResult),
-            from: from || undefined,
-            to: to || undefined,
-            page: 0,
-            size: DEFAULT_PAGE_SIZE,
-        }),
-        [floorId, from, parkingId, result, to],
-    );
-    const logsQuery = useQuery({
-        queryKey: managerFireSafetyQueryKeys.inspectionLogs(filters),
-        queryFn: () => listFireInspectionLogsApi(filters),
-        placeholderData: keepPreviousData,
-    });
-
-    useToastQueryError(
-        logsQuery.isError,
-        logsQuery.error,
-        'Failed to load inspection logs.',
-    );
-
-    const logs = logsQuery.data?.content ?? [];
-
-    return (
-        <div className="space-y-6 p-6">
-            <FacilityHeader
-                title="Inspection Logs"
-                description="Review staff fire inspection submissions and checklist results."
-            />
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Filters</CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-3 md:grid-cols-5">
-                    <Select
-                        value={parkingId}
-                        onValueChange={(value) => {
-                            setParkingId(value);
-                            setFloorId(ALL);
-                        }}
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Parking" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={ALL}>All parkings</SelectItem>
-                            {(parkingsQuery.data ?? []).map((parking) => (
-                                <SelectItem key={parking.id} value={parking.id}>
-                                    {parking.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Select value={floorId} onValueChange={setFloorId}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Floor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={ALL}>All floors</SelectItem>
-                            {(floorsQuery.data ?? []).map((floor) => (
-                                <SelectItem key={floor.id} value={floor.id}>
-                                    {floor.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Select value={result} onValueChange={setResult}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Result" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={ALL}>All results</SelectItem>
-                            {fireInspectionResultValues.map((item) => (
-                                <SelectItem key={item} value={item}>
-                                    {item}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Input
-                        type="date"
-                        value={from}
-                        onChange={(event) => setFrom(event.target.value)}
-                    />
-                    <Input
-                        type="date"
-                        value={to}
-                        onChange={(event) => setTo(event.target.value)}
-                    />
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Logs</CardTitle>
-                    <CardDescription>
-                        {(logsQuery.data?.totalElements ?? logs.length)
-                            .toLocaleString()} entries
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Time</TableHead>
-                                <TableHead>Extinguisher Code</TableHead>
-                                <TableHead>Result</TableHead>
-                                <TableHead>Inspector</TableHead>
-                                <TableHead>Floor / Zone</TableHead>
-                                <TableHead>Checklist</TableHead>
-                                <TableHead>Note</TableHead>
-                                <TableHead>Photo</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {logsQuery.isLoading && <SimpleSkeleton colSpan={8} />}
-                            {!logsQuery.isLoading &&
-                                logs.map((log) => (
-                                    <TableRow key={log.id}>
-                                        <TableCell>
-                                            {formatDateTime(log.inspectedAt)}
-                                        </TableCell>
-                                        <TableCell className="font-medium">
-                                            {log.extinguisherCode ??
-                                                log.code ??
-                                                log.fireExtinguisherId ??
-                                                '-'}
-                                        </TableCell>
-                                        <TableCell>
-                                            <StatusBadge status={log.result} />
-                                        </TableCell>
-                                        <TableCell>
-                                            {log.inspectorName ??
-                                                log.inspectorId ??
-                                                '-'}
-                                        </TableCell>
-                                        <TableCell>
-                                            {log.floorName ?? log.floorCode ?? '-'}
-                                            <span className="text-muted-foreground">
-                                                {' '}
-                                                / {log.zoneName ?? '-'}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>
-                                            {formatChecklist([
-                                                log.pressureOk,
-                                                log.sealOk,
-                                                log.locationOk,
-                                                log.expiryOk,
-                                            ])}
-                                        </TableCell>
-                                        <TableCell className="max-w-[220px] truncate">
-                                            {log.note || '-'}
-                                        </TableCell>
-                                        <TableCell>
-                                            {getInspectionPhotoHref(log) ? (
-                                                <Button
-                                                    asChild
-                                                    variant="ghost"
-                                                    size="sm"
-                                                >
-                                                    <a
-                                                        href={getInspectionPhotoHref(
-                                                            log,
-                                                        )}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                    >
-                                                        <ExternalLink data-icon="inline-start" />
-                                                        View Photo
-                                                    </a>
-                                                </Button>
-                                            ) : (
-                                                '-'
-                                            )}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            {!logsQuery.isLoading && logs.length === 0 && (
-                                <TableRow>
-                                    <TableCell colSpan={8}>
-                                        <EmptyState message="No inspection logs match the current filters." />
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
         </div>
     );
 }
@@ -1737,19 +1510,6 @@ function toDateTimeLocal(value?: string | null) {
         return '';
     }
     return value.slice(0, 16);
-}
-
-function formatChecklist(values: Array<boolean | null | undefined>) {
-    const known = values.filter((value) => typeof value === 'boolean');
-    if (known.length === 0) {
-        return '-';
-    }
-    const passed = known.filter(Boolean).length;
-    return `${passed}/${known.length} OK`;
-}
-
-function getInspectionPhotoHref(log: FireExtinguisherInspectionLog) {
-    return log.photoDisplayUrl?.trim() || log.photoUrl?.trim() || '';
 }
 
 function isHttpUrl(value: string) {

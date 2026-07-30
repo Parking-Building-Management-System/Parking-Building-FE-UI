@@ -111,6 +111,20 @@ const navigationSource = readFileSync(
     new URL('../src/config/navigation.ts', import.meta.url),
     'utf8',
 );
+const oldInspectionRouteSource = readFileSync(
+    new URL(
+        '../src/app/(protected)/manager/safety/inspections/page.tsx',
+        import.meta.url,
+    ),
+    'utf8',
+);
+const staffInspectionRouteSource = readFileSync(
+    new URL(
+        '../src/app/(protected)/staff/fire-inspection/page.tsx',
+        import.meta.url,
+    ),
+    'utf8',
+);
 
 assert.doesNotMatch(
     sidebarSource,
@@ -126,6 +140,21 @@ assert.match(
     sidebarSource,
     /function ChildNavLink[\s\S]*?<Link href=\{child\.href\}>/,
     'leaf children should remain navigation links',
+);
+assert.doesNotMatch(
+    navigationSource,
+    /Inspection Logs/,
+    'Manager Inspection Logs should not remain in navigation',
+);
+assert.match(
+    oldInspectionRouteSource,
+    /redirect\('\/manager\/safety\/fire-extinguishers'\)/,
+    'the old Manager inspections bookmark should redirect safely',
+);
+assert.match(
+    staffInspectionRouteSource,
+    /StaffFireInspectionPage/,
+    'the Staff operational inspection route must remain',
 );
 
 console.log('navigation route matching matrix passed');
