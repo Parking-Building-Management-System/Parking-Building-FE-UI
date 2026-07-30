@@ -111,3 +111,9 @@ export const resetManagerStaffPasswordApi = async (
 
     return getApiResult(response);
 };
+
+export const deleteManagerStaffApi = async (id: string) => {
+    await apiClient.delete<ApiResponse<void>>(
+        `${MANAGER_ENDPOINT}/staff/${id}`,
+    );
+};

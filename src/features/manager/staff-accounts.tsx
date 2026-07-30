@@ -7,7 +7,14 @@ import {
     useQuery,
     useQueryClient,
 } from '@tanstack/react-query';
-import { KeyRound, MoreHorizontal, Pencil, Plus, Search } from 'lucide-react';
+import {
+    KeyRound,
+    MoreHorizontal,
+    Pencil,
+    Plus,
+    Search,
+    Trash2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -45,8 +52,11 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { getErrorMessage } from '@/features/admin/error-message';
+import { managerKioskDeviceQueryKeys } from '@/service/manager/kiosk-device-api';
+import { managerPasswordResetQueryKeys } from '@/service/manager/password-reset-api';
 import {
     createManagerStaffApi,
+    deleteManagerStaffApi,
     listManagerStaffApi,
     managerStaffQueryKeys,
     resetManagerStaffPasswordApi,
@@ -82,6 +92,7 @@ export function StaffAccounts() {
     const [page, setPage] = useState(DEFAULT_PAGE);
     const [dialog, setDialog] = useState<StaffDialogState>({ open: false });
     const [resetStaff, setResetStaff] = useState<ManagerStaffItem | undefined>();
+    const [deleteStaff, setDeleteStaff] = useState<ManagerStaffItem | undefined>();
 
     const params = useMemo<ManagerStaffListParams>(
         () => ({
@@ -265,6 +276,9 @@ export function StaffAccounts() {
                                                 onReset={() =>
                                                     setResetStaff(item)
                                                 }
+                                                onDelete={() =>
+                                                    setDeleteStaff(item)
+                                                }
                                                 onStatusChange={(nextStatus) =>
                                                     statusMutation.mutate({
                                                         id: item.id,
@@ -377,6 +391,15 @@ export function StaffAccounts() {
                 onOpenChange={(open) => {
                     if (!open) {
                         setResetStaff(undefined);
+                    }
+                }}
+            />
+            <DeleteStaffDialog
+                key={deleteStaff?.id ?? 'no-delete-target'}
+                staff={deleteStaff}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setDeleteStaff(undefined);
                     }
                 }}
             />
@@ -627,12 +650,14 @@ function StaffActionsMenu({
     disabled,
     onEdit,
     onReset,
+    onDelete,
     onStatusChange,
 }: {
     staff: ManagerStaffItem;
     disabled: boolean;
     onEdit: () => void;
     onReset: () => void;
+    onDelete: () => void;
     onStatusChange: (status: ManagerStaffStatus) => void;
 }) {
     return (
@@ -640,7 +665,9 @@ function StaffActionsMenu({
             <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon-sm" disabled={disabled}>
                     <MoreHorizontal />
-                    <span className="sr-only">Staff status actions</span>
+                    <span className="sr-only">
+                        Actions for {staff.fullName || staff.username}
+                    </span>
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -662,8 +689,133 @@ function StaffActionsMenu({
                         Mark {staffStatus}
                     </DropdownMenuItem>
                 ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+                    <Trash2 />
+                    Delete Account
+                </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
+    );
+}
+
+function DeleteStaffDialog({
+    staff,
+    onOpenChange,
+}: {
+    staff?: ManagerStaffItem;
+    onOpenChange: (open: boolean) => void;
+}) {
+    const queryClient = useQueryClient();
+    const [confirmation, setConfirmation] = useState('');
+    const normalizedConfirmation = confirmation.trim();
+    const confirmed =
+        normalizedConfirmation === 'DELETE' ||
+        normalizedConfirmation === staff?.username;
+    const mutation = useMutation({
+        mutationFn: () => deleteManagerStaffApi(staff?.id ?? ''),
+        onSuccess: async () => {
+            await Promise.all([
+                queryClient.invalidateQueries({
+                    queryKey: managerStaffQueryKeys.staff,
+                }),
+                queryClient.invalidateQueries({
+                    queryKey: managerKioskDeviceQueryKeys.kiosks,
+                }),
+                queryClient.invalidateQueries({
+                    queryKey: managerKioskDeviceQueryKeys.deviceApprovals,
+                }),
+                queryClient.invalidateQueries({
+                    queryKey: managerPasswordResetQueryKeys.all,
+                }),
+            ]);
+            toast.success('Staff account deleted and active access revoked.');
+            setConfirmation('');
+            onOpenChange(false);
+        },
+        onError: (error) => {
+            toast.error(
+                getErrorMessage(error, 'Failed to delete Staff account.'),
+            );
+        },
+    });
+
+    const changeOpen = (open: boolean) => {
+        if (mutation.isPending) {
+            return;
+        }
+        if (!open) {
+            setConfirmation('');
+        }
+        onOpenChange(open);
+    };
+
+    return (
+        <Dialog open={Boolean(staff)} onOpenChange={changeOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Delete Staff account</DialogTitle>
+                    <DialogDescription>
+                        This permanently disables login access for{' '}
+                        <span className="text-foreground font-medium">
+                            {staff?.fullName || 'this Staff member'}
+                        </span>
+                        .
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="border-destructive/30 bg-destructive/5 space-y-3 rounded-lg border p-4 text-sm">
+                    <p className="font-medium">{staff?.username}</p>
+                    <ul className="text-muted-foreground list-disc space-y-1 pl-5">
+                        <li>Account login will be disabled.</li>
+                        <li>Every active session will be revoked.</li>
+                        <li>Kiosk assignments and device access will be disabled.</li>
+                        <li>Cash, inspection, violation, and audit history will remain.</li>
+                    </ul>
+                </div>
+
+                <div className="space-y-2">
+                    <label
+                        htmlFor="delete-staff-confirmation"
+                        className="text-sm font-medium"
+                    >
+                        Type <span className="font-mono">DELETE</span> or{' '}
+                        <span className="font-mono">{staff?.username}</span> to
+                        confirm
+                    </label>
+                    <Input
+                        id="delete-staff-confirmation"
+                        autoComplete="off"
+                        value={confirmation}
+                        disabled={mutation.isPending}
+                        onChange={(event) =>
+                            setConfirmation(event.target.value)
+                        }
+                    />
+                </div>
+
+                <DialogFooter>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={mutation.isPending}
+                        onClick={() => changeOpen(false)}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="destructive"
+                        disabled={!staff || !confirmed || mutation.isPending}
+                        onClick={() => mutation.mutate()}
+                    >
+                        {mutation.isPending
+                            ? 'Deleting account...'
+                            : 'Delete account'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 
