@@ -113,6 +113,12 @@ export const navigationGroups: NavigationGroup[] = [
         title: 'Parking Manager',
         items: [
             {
+                title: 'Analytics Dashboard',
+                href: '/manager/analytics',
+                icon: LayoutDashboard,
+                roles: ['PARKING_MANAGER'],
+            },
+            {
                 title: 'Facility Setup',
                 href: '/manager/facility/parkings',
                 groupPath: '/manager/facility',
