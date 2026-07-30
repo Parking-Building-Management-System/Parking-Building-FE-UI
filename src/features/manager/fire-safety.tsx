@@ -68,6 +68,15 @@ import type {
     ParkingResponse,
 } from '@/service/manager/facility-type';
 import {
+    getDefaultExtinguisherForm,
+    initializeCreateFloor,
+    initializeCreateParking,
+    selectExtinguisherFloor,
+    selectExtinguisherParking,
+    toExtinguisherRequest,
+    validateExtinguisherLocation,
+} from '@/service/manager/fire-extinguisher-form';
+import {
     createFireExtinguisherApi,
     deleteFireExtinguisherApi,
     getFireExtinguisherSummaryApi,
@@ -875,6 +884,7 @@ function FireExtinguisherDialog({
     const [form, setForm] = useState<FireExtinguisherFormValues>(
         getDefaultExtinguisherForm(dialog.extinguisher, parkings[0]?.id),
     );
+    const [parkingChanged, setParkingChanged] = useState(false);
     const floorsQuery = useQuery({
         queryKey: managerFacilityQueryKeys.floors(form.parkingId),
         queryFn: () => listFloorsApi(form.parkingId),
@@ -885,6 +895,30 @@ function FireExtinguisherDialog({
         queryFn: () => listZonesApi(form.floorId),
         enabled: dialog.open && !!form.floorId,
     });
+    const floors = useMemo(() => floorsQuery.data ?? [], [floorsQuery.data]);
+    const zones = zonesQuery.data ?? [];
+
+    useEffect(() => {
+        if (!dialog.open || isEdit) {
+            return;
+        }
+
+        const timeout = window.setTimeout(() => {
+            setForm((current) => initializeCreateParking(current, parkings));
+        }, 0);
+        return () => window.clearTimeout(timeout);
+    }, [dialog.open, isEdit, parkings]);
+
+    useEffect(() => {
+        if (!dialog.open || !form.parkingId || (isEdit && !parkingChanged)) {
+            return;
+        }
+
+        const timeout = window.setTimeout(() => {
+            setForm((current) => initializeCreateFloor(current, floors));
+        }, 0);
+        return () => window.clearTimeout(timeout);
+    }, [dialog.open, floors, form.parkingId, isEdit, parkingChanged]);
 
     const mutation = useMutation({
         mutationFn: (request: CreateFireExtinguisherRequest) =>
@@ -915,11 +949,20 @@ function FireExtinguisherDialog({
             toast.error(parsed.error.issues[0]?.message ?? 'Check form values.');
             return;
         }
+
+        const locationError = validateExtinguisherLocation(
+            parsed.data,
+            parkings,
+            floors,
+            zones,
+        );
+        if (locationError) {
+            toast.error(locationError);
+            return;
+        }
+
         mutation.mutate(toExtinguisherRequest(parsed.data));
     };
-
-    const floors = floorsQuery.data ?? [];
-    const zones = zonesQuery.data ?? [];
 
     return (
         <Dialog open={dialog.open} onOpenChange={onOpenChange}>
@@ -938,14 +981,13 @@ function FireExtinguisherDialog({
                     <FormSelect
                         label="Parking"
                         value={form.parkingId}
-                        onChange={(value) =>
-                            setForm((current) => ({
-                                ...current,
-                                parkingId: value,
-                                floorId: '',
-                                zoneId: '',
-                            }))
-                        }
+                        disabled={parkings.length === 0}
+                        onChange={(value) => {
+                            setParkingChanged(true);
+                            setForm((current) =>
+                                selectExtinguisherParking(current, value),
+                            );
+                        }}
                     >
                         {parkings.map((parking) => (
                             <SelectItem key={parking.id} value={parking.id}>
@@ -955,14 +997,14 @@ function FireExtinguisherDialog({
                     </FormSelect>
                     <FormSelect
                         label="Floor"
-                        value={form.floorId || floors[0]?.id || ''}
-                        onChange={(value) =>
-                            setForm((current) => ({
-                                ...current,
-                                floorId: value,
-                                zoneId: '',
-                            }))
-                        }
+                        value={form.floorId}
+                        disabled={!form.parkingId || floorsQuery.isLoading}
+                        onChange={(value) => {
+                            setParkingChanged(false);
+                            setForm((current) =>
+                                selectExtinguisherFloor(current, value),
+                            );
+                        }}
                     >
                         {floors.map((floor) => (
                             <SelectItem key={floor.id} value={floor.id}>
@@ -973,6 +1015,7 @@ function FireExtinguisherDialog({
                     <FormSelect
                         label="Zone"
                         value={form.zoneId || NO_ZONE}
+                        disabled={!form.floorId || zonesQuery.isLoading}
                         onChange={(value) =>
                             setForm((current) => ({
                                 ...current,
@@ -1107,6 +1150,30 @@ function FireExtinguisherDialog({
                             }
                         />
                     </div>
+                    {(floorsQuery.isError || zonesQuery.isError) && (
+                        <div
+                            className="border-destructive/30 bg-destructive/5 flex items-center justify-between gap-3 rounded-lg border p-3 text-sm md:col-span-2"
+                            role="alert"
+                        >
+                            <span>
+                                Location options could not be loaded. Retry
+                                before saving.
+                            </span>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    floorsQuery.refetch();
+                                    if (form.floorId) {
+                                        zonesQuery.refetch();
+                                    }
+                                }}
+                            >
+                                Retry
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
                 <DialogFooter>
@@ -1117,7 +1184,18 @@ function FireExtinguisherDialog({
                     >
                         Cancel
                     </Button>
-                    <Button disabled={mutation.isPending} onClick={submit}>
+                    <Button
+                        disabled={
+                            mutation.isPending ||
+                            floorsQuery.isLoading ||
+                            zonesQuery.isLoading ||
+                            floorsQuery.isError ||
+                            zonesQuery.isError ||
+                            !form.parkingId ||
+                            !form.floorId
+                        }
+                        onClick={submit}
+                    >
                         {mutation.isPending ? 'Saving...' : 'Save'}
                     </Button>
                 </DialogFooter>
@@ -1397,18 +1475,20 @@ function FormInput({
 function FormSelect({
     label,
     value,
+    disabled = false,
     onChange,
     children,
 }: {
     label: string;
     value: string;
+    disabled?: boolean;
     onChange: (value: string) => void;
     children: React.ReactNode;
 }) {
     return (
         <label className="space-y-2 text-sm font-medium">
             <span>{label}</span>
-            <Select value={value} onValueChange={onChange}>
+            <Select value={value} disabled={disabled} onValueChange={onChange}>
                 <SelectTrigger>
                     <SelectValue />
                 </SelectTrigger>
@@ -1416,59 +1496,6 @@ function FormSelect({
             </Select>
         </label>
     );
-}
-
-function getDefaultExtinguisherForm(
-    extinguisher?: FireExtinguisher,
-    fallbackParkingId = '',
-): FireExtinguisherFormValues {
-    return {
-        parkingId: extinguisher?.parkingId ?? fallbackParkingId,
-        floorId: extinguisher?.floorId ?? '',
-        zoneId: extinguisher?.zoneId ?? '',
-        code: extinguisher?.code ?? '',
-        type: extinguisher?.type ?? 'CO2',
-        locationDescription: extinguisher?.locationDescription ?? '',
-        xCoordinate:
-            typeof extinguisher?.xCoordinate === 'number'
-                ? extinguisher.xCoordinate
-                : '',
-        yCoordinate:
-            typeof extinguisher?.yCoordinate === 'number'
-                ? extinguisher.yCoordinate
-                : '',
-        manufactureDate: extinguisher?.manufactureDate ?? '',
-        expiryDate: extinguisher?.expiryDate ?? '',
-        nextInspectionAt: extinguisher?.nextInspectionAt ?? '',
-        status: extinguisher?.status ?? 'ACTIVE',
-        note: extinguisher?.note ?? '',
-    };
-}
-
-function toExtinguisherRequest(
-    values: FireExtinguisherFormValues,
-): CreateFireExtinguisherRequest {
-    return {
-        parkingId: values.parkingId,
-        floorId: values.floorId,
-        zoneId: values.zoneId || undefined,
-        code: values.code.trim().toUpperCase(),
-        type: values.type,
-        locationDescription: values.locationDescription.trim(),
-        xCoordinate:
-            typeof values.xCoordinate === 'number'
-                ? values.xCoordinate
-                : undefined,
-        yCoordinate:
-            typeof values.yCoordinate === 'number'
-                ? values.yCoordinate
-                : undefined,
-        manufactureDate: values.manufactureDate || undefined,
-        expiryDate: values.expiryDate || undefined,
-        nextInspectionAt: values.nextInspectionAt || undefined,
-        status: values.status,
-        note: values.note?.trim() || undefined,
-    };
 }
 
 function useToastQueryError(
