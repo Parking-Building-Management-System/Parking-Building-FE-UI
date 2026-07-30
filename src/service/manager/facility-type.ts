@@ -31,7 +31,12 @@ export type ParkingStatus = (typeof parkingStatusValues)[number];
 export type ZoneStatus = (typeof zoneStatusValues)[number];
 export type SlotStatus = (typeof slotStatusValues)[number];
 export type SlotBulkStatus = (typeof slotBulkStatusValues)[number];
-export const rfidCardStatusValues = ['ACTIVE', 'INACTIVE', 'LOST'] as const;
+export const rfidCardStatusValues = [
+    'ACTIVE',
+    'INACTIVE',
+    'LOST',
+    'BLOCKED',
+] as const;
 export const rfidCardStatusSchema = z.enum(rfidCardStatusValues);
 export type RfidCardStatus = (typeof rfidCardStatusValues)[number];
 
@@ -244,10 +249,10 @@ export interface RfidCardResponse {
     id: string;
     code: string;
     status: RfidCardStatus;
-    createdAt?: string;
 }
 
 export interface RfidCardListParams {
+    search?: string;
     status?: RfidCardStatus;
     page?: number;
     size?: number;
@@ -256,6 +261,12 @@ export interface RfidCardListParams {
 export interface RfidCardGenerateRequest {
     count?: number;
     prefix?: string;
+}
+
+export interface RfidCardGenerateResponse {
+    requestedCount: number;
+    createdCount: number;
+    existingCount: number;
 }
 
 export interface RfidCardStatusRequest {
@@ -337,7 +348,7 @@ export const rfidCardGenerateRequestSchema = z.object({
         .min(1, 'Count must be at least 1.')
         .max(10000, 'Count must be 10,000 or fewer.')
         .optional(),
-    prefix: z.string().trim().max(20).optional(),
+    prefix: z.string().trim().max(30).optional(),
 });
 
 export type CreateZoneFormValues = z.infer<typeof createZoneFormSchema>;

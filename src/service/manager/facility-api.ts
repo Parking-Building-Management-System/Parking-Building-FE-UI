@@ -12,6 +12,7 @@ import type {
     ParkingStatusResponse,
     ParkingTopologyResponse,
     RfidCardGenerateRequest,
+    RfidCardGenerateResponse,
     RfidCardListParams,
     RfidCardPageResponse,
     RfidCardResponse,
@@ -80,6 +81,17 @@ const normalizeSlotSearchParams = (params: SlotSearchParams) => {
         exact: slotCode ? params.exact || undefined : undefined,
         page: params.page,
         size: params.size,
+    };
+};
+
+export const normalizeRfidCardListParams = (params: RfidCardListParams) => {
+    const search = normalizeOptionalString(params.search);
+
+    return {
+        ...(search ? { search } : {}),
+        ...(params.status ? { status: params.status } : {}),
+        ...(typeof params.page === 'number' ? { page: params.page } : {}),
+        ...(typeof params.size === 'number' ? { size: params.size } : {}),
     };
 };
 
@@ -156,6 +168,7 @@ export const managerFacilityQueryKeys = {
             'facility',
             'rfid-cards',
             'list',
+            normalizeOptionalString(params.search) ?? '',
             params.status ?? 'ALL_STATUSES',
             params.page ?? 0,
             params.size ?? 20,
@@ -502,18 +515,16 @@ export const listGlobalVehicleTypesApi = async () => {
 export const listRfidCardsApi = async (params: RfidCardListParams) => {
     const response = await apiClient.get<ApiResponse<RfidCardPageResponse>>(
         `${MANAGER_ENDPOINT}/rfid-cards`,
-        { params },
+        { params: normalizeRfidCardListParams(params) },
     );
 
     return getApiResult(response);
 };
 
-export const generateRfidCardsApi = async (
-    data: RfidCardGenerateRequest,
-) => {
+export const generateRfidCardsApi = async (data: RfidCardGenerateRequest) => {
     const response = await apiClient.post<
-        ApiResponse<RfidCardPageResponse | RfidCardResponse[]>,
-        AxiosResponse<ApiResponse<RfidCardPageResponse | RfidCardResponse[]>>,
+        ApiResponse<RfidCardGenerateResponse>,
+        AxiosResponse<ApiResponse<RfidCardGenerateResponse>>,
         RfidCardGenerateRequest
     >(`${MANAGER_ENDPOINT}/rfid-cards/generate`, data);
 
