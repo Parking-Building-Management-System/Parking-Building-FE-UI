@@ -169,6 +169,10 @@ export const navigationGroups: NavigationGroup[] = [
                         title: 'Device Approvals',
                         href: '/manager/staff-devices/device-approvals',
                     },
+                    {
+                        title: 'Password Reset Requests',
+                        href: '/manager/staff-devices/password-reset-requests',
+                    },
                 ],
             },
             {

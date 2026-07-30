@@ -52,3 +52,11 @@ export const loginFormSchema = loginSchema.pick({
 export type LoginRequest = z.infer<typeof loginSchema>;
 
 export type LoginFormValues = z.infer<typeof loginFormSchema>;
+
+export const passwordResetRequestSchema = z.object({
+    email: z.email('Enter a valid email address.').max(255),
+});
+
+export type PasswordResetRequestValues = z.infer<
+    typeof passwordResetRequestSchema
+>;

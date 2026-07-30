@@ -3,7 +3,12 @@
 import axios from 'axios';
 import apiClient, { ApiResponse } from '@/lib/api/axios-config';
 import { getApiUrl } from '@/lib/api/api-url';
-import { AuthenticationResponse, LoginRequest, UserProfile } from './type';
+import {
+    AuthenticationResponse,
+    LoginRequest,
+    PasswordResetRequestValues,
+    UserProfile,
+} from './type';
 
 const AUTH_ENDPOINT = '/auth';
 const apiUrl = getApiUrl();
@@ -55,4 +60,17 @@ export const logoutApi = async () => {
 
 export const logoutAllApi = async () => {
     await apiClient.post<ApiResponse<void>>(`${AUTH_ENDPOINT}/logout-all`);
+};
+
+export const requestStaffPasswordResetApi = async (
+    data: PasswordResetRequestValues,
+) => {
+    const response = await apiClient.post<ApiResponse<void>>(
+        `${AUTH_ENDPOINT}/password-reset-requests`,
+        {
+            email: data.email.trim().toLowerCase(),
+        },
+    );
+
+    return response.data.message;
 };
